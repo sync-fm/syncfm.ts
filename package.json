@@ -1,0 +1,55 @@
+{
+  "name": "syncfm.ts",
+  "version": "1.0.0",
+  "description": "TypeScript API for sync.fm",
+  "main": "dist/index.js",
+  "type": "module",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "start": "node dist/server.js",
+    "build": "rm -rf ./dist && tsc --build --verbose --diagnostics && tsc-alias",
+    "test": "vitest run",
+    "lint": "eslint . --ext .ts"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sync-fm/syncfm.ts.git"
+  },
+  "keywords": [
+    "music",
+    "typescript",
+    "library",
+    "data-processing",
+    "data-migration"
+  ],
+  "author": "fishylunar",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/sync-fm/syncfm.ts/issues"
+  },
+  "homepage": "https://github.com/sync-fm/syncfm.ts#readme",
+  "dependencies": {
+    "@eslint/js": "^9.26.0",
+    "@spotify/web-api-ts-sdk": "^1.2.0",
+    "@types/express": "^5.0.2",
+    "@types/node": "^22.15.18",
+    "dotenv": "^16.5.0",
+    "eslint": "^9.26.0",
+    "express": "^5.1.0",
+    "tsc-alias": "^1.8.16",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.32.1",
+    "ytmusic-api": "^5.3.0"
+  }
+}
