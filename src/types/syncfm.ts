@@ -24,6 +24,16 @@ export interface SyncFMArtist {
     name: string; // Name of the artist
     imageUrl?: string; // URL of the artist's image
     externalIds: SyncFMExternalIdMap;
+    genre?: string[];
+    albums?: SyncFMAlbum[];
+    tracks?: {
+        name: string;
+        duration?: number;
+        externalIds: SyncFMExternalIdMap;
+        thumbnailUrl?: string;
+        contentUrl?: string;
+        uploadDate?: string;
+    }; // Array of albums by the artist
     // Later we could add so much here xd
 }
 

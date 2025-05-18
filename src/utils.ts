@@ -1,4 +1,5 @@
 import { createHash } from "crypto";
+
 export const generateSyncId = (title: string, artists: string[], duration: number): string => {
   // Process title: lowercase, remove content in parentheses/brackets, take first part if split by separators
   let processedTitle = title.toLowerCase();
@@ -18,3 +19,16 @@ export const generateSyncId = (title: string, artists: string[], duration: numbe
         .digest('hex')
   return hash;
 }
+
+export const generateSyncArtistId = (name: string): string => {
+    // Process name: lowercase, remove content in parentheses/brackets, take first part if split by separators
+    let processedName = name.toLowerCase();
+    processedName = processedName.replace(/\s*\([^)]*\)\s*/g, ''); // Remove content in parentheses
+    processedName = processedName.replace(/\s*\[[^]]*\]\s*/g, ''); // Remove content in brackets
+    processedName = processedName.split(/\s*-\s*|\s*—\s*|\s*\|\s*/)[0].trim();
+    
+    const hash = createHash('sha256')
+        .update(processedName)
+        .digest('hex')
+    return hash;
+    }

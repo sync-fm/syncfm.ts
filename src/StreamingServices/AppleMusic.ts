@@ -1,6 +1,6 @@
 import fs from 'fs';
-import { SyncFMSong, SyncFMExternalIdMap } from '../types/syncfm';
-import { generateSyncId } from '../utils';
+import { SyncFMSong, SyncFMExternalIdMap, SyncFMArtist, SyncFMAlbum } from '../types/syncfm'; // Added SyncFMAlbum
+import { generateSyncId, generateSyncArtistId} from '../utils';
 // Internal Types
 interface AppleMusicSong {
     name: string;
@@ -202,4 +202,207 @@ export function getAppleMusicIdFromURL(url: string): string {
     }
     const id = urlParts[6];
     return id;
+}
+
+export const getArtistFromAppleMusicId = async (id: string): Promise<SyncFMArtist> => {
+ try {
+    const response = await fetch(createAppleMusicURL(id, "artist"));
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const html = await response.text();
+    //console.log(html);
+
+    const embeddedArtistInfo = html.split(`<script id=schema:music-group type="application/ld+json">`)[1]?.split(`</script>`)[0];
+    const trimmedArtistInfo = embeddedArtistInfo?.trim();
+    if (trimmedArtistInfo) {
+      const jsonData = JSON.parse(trimmedArtistInfo);
+      fs.writeFileSync("AppleMusicArtistResult.json", JSON.stringify(jsonData, null, 2));
+      
+      const artist: SyncFMArtist = {
+        syncId: generateSyncArtistId(jsonData.name),
+        name: jsonData.name,
+        imageUrl: jsonData.image,
+        externalIds: {
+            AppleMusic: id,
+        },
+        genre: jsonData.genre || [],
+        tracks: jsonData.tracks?.map((track: any) => ({
+            title: track.name,
+            duration: parseISO8601Duration(track.duration),
+            thumbnailUrl: track.audio.thumbnailUrl,
+            uploadDate: track.audio.uploadDate,
+            contentUrl: track.audio.contentUrl,
+        })) || [],
+      }
+      return artist;
+    } else {
+      throw new Error('Could not find artist data in HTML');
+    }
+  } catch (error) {
+    console.error('Error fetching or parsing artist data:', error);
+    throw error;
+  }
+}
+
+export async function getArtistBySearchQuery(query: string): Promise<SyncFMArtist> {
+  try {
+    const url = "https://music.apple.com/us/search?term=" + encodeURIComponent(query);
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const html = await response.text();
+    const embeddedArtistInfo = html.split(`<script type="application/json" id="serialized-server-data">`)[1]?.split(`</script>`)[0];
+    const trimmedArtistInfo = embeddedArtistInfo?.trim();
+    if (trimmedArtistInfo) {
+      const jsonData = JSON.parse(trimmedArtistInfo);
+      fs.writeFileSync("AppleMusicArtistSearchResultRawSearch.json", JSON.stringify(jsonData, null, 2));
+
+    const firstArtist = jsonData[0]?.data?.sections[0].items?.find((item: any) => item.itemKind === "artists");
+
+    if (!firstArtist) {
+      throw new Error('Could not find artist ID in search result');
+    }
+
+    const artistId = firstArtist?.contentDescriptor?.identifiers?.storeAdamId || firstArtist?.contentDescriptor?.identifiers?.storeAdamID;
+    if (!artistId) {
+      throw new Error('Could not find artist ID in search result');
+    }
+    return await getArtistFromAppleMusicId(artistId.toString());
+    } else {
+      throw new Error('Could not find artist data in HTML');
+    }
+  } catch (error) {
+    console.error('Error fetching or parsing artist data:', error);
+    throw error;
+  }
+}
+
+export const getAlbumFromAppleMusicId = async (id: string): Promise<SyncFMAlbum> => {
+ try {
+    const response = await fetch(createAppleMusicURL(id, "album"));
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const html = await response.text();
+
+    const embeddedAlbumInfo = html.split(`<script id=schema:music-album type="application/ld+json">`)[1]?.split(`</script>`)[0];
+    const trimmedAlbumInfo = embeddedAlbumInfo?.trim();
+    if (trimmedAlbumInfo) {
+      const jsonData = JSON.parse(trimmedAlbumInfo);
+      fs.writeFileSync("AppleMusicAlbumResult.json", JSON.stringify(jsonData, null, 2));
+      
+      const albumArtists = jsonData.byArtist?.map((artist: any) => artist.name) || [];
+
+      const songs: SyncFMSong[] = (jsonData.tracks || []).map((track: any) => {
+        const songDuration = parseISO8601Duration(track.duration);
+        const appleMusicSongId = track.url?.split('/').pop(); // Assumes ID is the last part of the URL path
+
+        const externalSongIds: SyncFMExternalIdMap = {};
+        if (appleMusicSongId) {
+            externalSongIds.AppleMusic = appleMusicSongId;
+        }
+
+        return {
+            syncId: generateSyncId(track.name, albumArtists, songDuration),
+            title: track.name,
+            artists: albumArtists,
+            album: jsonData.name,
+            releaseDate: track.audio?.uploadDate || jsonData.datePublished,
+            duration: songDuration,
+            imageUrl: track.audio?.thumbnailUrl || jsonData.image,
+            externalIds: externalSongIds,
+            explicit: undefined, 
+            description: undefined, 
+        };
+      });
+
+      const albumTotalDuration = songs.reduce((sum, song) => sum + (song.duration || 0), 0);
+
+      const syncFmAlbum: SyncFMAlbum = {
+        syncId: generateSyncId(jsonData.name, albumArtists, albumTotalDuration),
+        title: jsonData.name,
+        description: jsonData.description,
+        artists: albumArtists,
+        releaseDate: jsonData.datePublished,
+        imageUrl: jsonData.image,
+        externalIds: { AppleMusic: id },
+        songs: songs,
+        totalTracks: jsonData.tracks?.length || 0,
+        duration: albumTotalDuration > 0 ? albumTotalDuration : undefined,
+        label: undefined, 
+        genres: jsonData.genre || [],
+        explicit: undefined, 
+      };
+      
+      return syncFmAlbum;
+    } else {
+      throw new Error('Could not find album data in HTML');
+    }
+  } catch (error) {
+    console.error('Error fetching or parsing album data:', error);
+    throw error;
+  }
+};
+
+export async function getAlbumBySearchQuery(query: string): Promise<SyncFMAlbum> {
+  try {
+    const url = "https://music.apple.com/us/search?term=" + encodeURIComponent(query);
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const html = await response.text();
+    const embeddedSearchData = html.split(`<script type="application/json" id="serialized-server-data">`)[1]?.split(`</script>`)[0];
+    const trimmedSearchData = embeddedSearchData?.trim();
+    if (trimmedSearchData) {
+      const jsonData = JSON.parse(trimmedSearchData);
+      // fs.writeFileSync("AppleMusicAlbumSearchResultRawSearch.json", JSON.stringify(jsonData, null, 2)); // For debugging
+
+      let foundAlbumData: any;
+      if (jsonData[0]?.data?.sections) {
+        for (const section of jsonData[0].data.sections) {
+            if (section.items) {
+                foundAlbumData = section.items.find((item: any) => item.itemKind === "albums");
+                if (foundAlbumData) break;
+            }
+        }
+      }
+
+      if (!foundAlbumData) {
+        throw new Error('Could not find album in search result items');
+      }
+
+      const albumId = foundAlbumData?.contentDescriptor?.identifiers?.storeAdamId || foundAlbumData?.contentDescriptor?.identifiers?.storeAdamID;
+      if (!albumId) {
+        throw new Error('Could not find album ID in search result');
+      }
+      return await getAlbumFromAppleMusicId(albumId.toString());
+    } else {
+      throw new Error('Could not find album search data in HTML response');
+    }
+  } catch (error) {
+    console.error('Error fetching or parsing album search data:', error);
+    throw error;
+  }
+}
+
+export const getAppleMusicInputType = function (url: string): "song" | "playlist" | "album" | "artist" | null {
+    const urlParts = url.split("/");
+    if (urlParts.length < 5) {
+        return null;
+    }
+    const type = urlParts[4];
+    if (type === "song") {
+        return "song";
+    } else if (type === "playlist") {
+        return "playlist";
+    } else if (type === "album") {
+        return "album";
+    } else if (type === "artist") {
+        return "artist";
+    } else {
+        return null;
+    }
 }
