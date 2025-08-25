@@ -10,11 +10,10 @@
 ### What can it do now?
 - Get song data (by ids) from YouTube Music (Only music is supported atm.), Apple Music & Spotify
 - Convert a song from one service to another
-
-
+- Get album info, artist info, etc from all services
+- Convert albums & artists between all services (YTM is a little 50/50)
 ### What will it be able to do?
-- Get playlist info, album info, artist info, etc from all services
-- Convert albums & artists between all services
+- Get playlist info etc from all services
 - Read playlist info, and later be able to convert playlists between services
 - Export & Import user data (likes, playlists, etc) between services
 - StreamingService Provier Registry to allow for community made converters between streaming services 

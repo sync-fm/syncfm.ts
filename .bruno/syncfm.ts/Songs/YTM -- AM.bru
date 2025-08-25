@@ -1,0 +1,19 @@
+meta {
+  name: YTM -> AM
+  type: http
+  seq: 4
+}
+
+get {
+  url: http://am.localhost:3000/https://music.youtube.com/watch?v=niCL5YHBcQU
+  body: none
+  auth: inherit
+}
+
+params:query {
+  v: niCL5YHBcQU
+}
+
+settings {
+  encodeUrl: true
+}

@@ -1,0 +1,15 @@
+meta {
+  name: AM -> Spotify
+  type: http
+  seq: 2
+}
+
+get {
+  url: http://s.localhost:3000/https://music.apple.com/US/song/1832443245
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+}

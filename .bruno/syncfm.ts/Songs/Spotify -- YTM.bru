@@ -1,0 +1,19 @@
+meta {
+  name: Spotify -> YTM
+  type: http
+  seq: 6
+}
+
+get {
+  url: http://yt.localhost:3000/https://open.spotify.com/track/1tIYTeCrLtHTbZwmKXh625?si=3e2324e504394328
+  body: none
+  auth: inherit
+}
+
+params:query {
+  si: 3e2324e504394328
+}
+
+settings {
+  encodeUrl: true
+}

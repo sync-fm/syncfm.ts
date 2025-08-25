@@ -1,0 +1,19 @@
+meta {
+  name: YTM -> Spotify
+  type: http
+  seq: 5
+}
+
+get {
+  url: http://s.localhost:3000/https://music.youtube.com/watch?v=niCL5YHBcQU
+  body: none
+  auth: inherit
+}
+
+params:query {
+  v: niCL5YHBcQU
+}
+
+settings {
+  encodeUrl: true
+}

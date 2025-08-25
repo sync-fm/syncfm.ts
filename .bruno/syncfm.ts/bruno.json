@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "name": "syncfm.ts",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ]
+}

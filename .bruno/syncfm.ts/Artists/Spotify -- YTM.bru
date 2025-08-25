@@ -1,0 +1,19 @@
+meta {
+  name: Spotify -> YTM
+  type: http
+  seq: 2
+}
+
+get {
+  url: http://am.localhost:3000/https://open.spotify.com/artist/60d24wfXkVzDSfLS6hyCjZ?si=1u5SkkGaTmyqtikvbd0m3w
+  body: none
+  auth: inherit
+}
+
+params:query {
+  si: 1u5SkkGaTmyqtikvbd0m3w
+}
+
+settings {
+  encodeUrl: true
+}

@@ -1,6 +1,6 @@
 {
   "name": "syncfm.ts",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "TypeScript API for sync.fm",
   "main": "dist/index.js",
   "type": "module",
@@ -41,11 +41,13 @@
   "dependencies": {
     "@eslint/js": "^9.26.0",
     "@spotify/web-api-ts-sdk": "^1.2.0",
+    "@supabase/supabase-js": "^2.56.0",
     "@types/express": "^5.0.2",
     "@types/node": "^22.15.18",
     "dotenv": "^16.5.0",
     "eslint": "^9.26.0",
     "express": "^5.1.0",
+    "superagent": "^10.2.3",
     "tsc-alias": "^1.8.16",
     "tsx": "^4.19.4",
     "typescript": "^5.8.3",

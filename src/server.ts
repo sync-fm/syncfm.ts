@@ -6,11 +6,18 @@ const __dirname = new URL('.', import.meta.url).pathname;
 dotenv.config({ path: `${__dirname}/../.env` });
 
 import express, { Express, Request, Response } from "express";
-import { getInputSongInfo, convertSong, createSongURL, getInputTypeFromUrl, getStreamingServiceFromUrl, getInputArtistInfo, convertArtist, createArtistURL } from "./";
-import { SyncFMSong } from "./types/syncfm";
+import { SyncFM, SyncFMSong} from "./";
 
 const app: Express = express();
 const port = process.env.PORT || 3000;
+
+const syncfm = new SyncFM({
+    SpotifyClientId: process.env.SPOTIFY_CLIENT_ID,
+    SpotifyClientSecret: process.env.SPOTIFY_CLIENT_SECRET,
+    SupabaseUrl: process.env.SUPABASE_URL,
+    SupabaseKey: process.env.SUPABASE_KEY,
+});
+
 
 // Middleware to parse JSON bodies
 app.use(express.json());
@@ -59,9 +66,9 @@ app.get(/^\/(.*)/, async (req: Request, res: Response): Promise<void> => {
 
         console.log(`[SyncFM-Redirect]: Received request to convert from ${inputUrl} to ${desiredService}`);
 
-        switch (getInputTypeFromUrl(inputUrl, getStreamingServiceFromUrl(inputUrl))) {
+        switch (syncfm.getInputTypeFromUrl(inputUrl, syncfm.getStreamingServiceFromUrl(inputUrl))) {
             case "song":
-                const songInfo: SyncFMSong = await getInputSongInfo(inputUrl);
+                { const songInfo: SyncFMSong = await syncfm.getInputSongInfo(inputUrl);
                 if (!songInfo) {
                     res.status(404).json({ error: "Could not retrieve information for the input song." });
                     return;
@@ -72,30 +79,61 @@ app.get(/^\/(.*)/, async (req: Request, res: Response): Promise<void> => {
                     return;
                 }
 
-                const convertedSong = await convertSong(songInfo, desiredService);
+                const convertedSong = await syncfm.convertSong(songInfo, desiredService);
                 if (!convertedSong) {
                     res.status(404).json({ error: `Could not convert song to ${desiredService}.` });
                     return;
                 }
 
+               
+             
                 // Get the URL for the converted song
-                const convertedSongUrl = createSongURL(convertedSong, desiredService);
+                const convertedSongUrl = syncfm.createSongURL(convertedSong, desiredService);
                 if (!convertedSongUrl) {
                     res.status(404).json({ error: `Could not create URL for the converted song on ${desiredService}.` });
                     return;
                 }
                 console.log(`[SyncFM-Redirect]: Converted song to ${desiredService}:`, convertedSongUrl);
 
+                 res.json({ convertedSong, convertedSongUrl });
+                    /*
                 res.redirect(convertedSongUrl);
-                break;
+                */
+                break; }
             case "playlist":
                 res.status(400).json({ error: "Playlist conversion is not supported." });
                 return;
             case "album":
-                res.status(400).json({ error: "Album conversion is not supported." });
+                {
+                    const albumInfo = await syncfm.getInputAlbumInfo(inputUrl);
+                    if (!albumInfo) {
+                        res.status(404).json({ error: "Could not retrieve information for the input album." });
+                        return;
+                    }
+                    if (desiredService === "syncfm") {
+                        res.status(200).json(albumInfo);
+                        return;
+                    }
+                    const convertedAlbum = await syncfm.convertAlbum(albumInfo, desiredService);
+                    if (!convertedAlbum) {
+                        res.status(404).json({ error: `Could not convert album to ${desiredService}.` });
+                        return;
+                    }
+                    // Get the URL for the converted album
+                    const convertedAlbumUrl = syncfm.createAlbumURL(convertedAlbum, desiredService);
+                    if (!convertedAlbumUrl) {
+                        res.status(404).json({ error: `Could not create URL for the converted album on ${desiredService}.` });
+                        return;
+                    }
+                    console.log(`[SyncFM-Redirect]: Converted album to ${desiredService}:`, convertedAlbumUrl);
+                    res.json({ convertedAlbum, convertedAlbumUrl });
+                    /*
+                    res.redirect(convertedAlbumUrl);
+                    */
+                }
                 return;
             case "artist":
-                const artistInfo = await getInputArtistInfo(inputUrl);
+                { const artistInfo = await syncfm.getInputArtistInfo(inputUrl);
                 if (!artistInfo) {
                     res.status(404).json({ error: "Could not retrieve information for the input artist." });
                     return;
@@ -106,19 +144,23 @@ app.get(/^\/(.*)/, async (req: Request, res: Response): Promise<void> => {
                     return;
                 }
 
-                const convertedArtist = await convertArtist(artistInfo, desiredService);
+                const convertedArtist = await syncfm.convertArtist(artistInfo, desiredService);
                 if (!convertedArtist) {
                     res.status(404).json({ error: `Could not convert artist to ${desiredService}.` });
                     return;
                 }
                 // Get the URL for the converted artist
-                const convertedArtistUrl = createArtistURL(convertedArtist, desiredService);
+                const convertedArtistUrl = syncfm.createArtistURL(convertedArtist, desiredService);
                 if (!convertedArtistUrl) {
                     res.status(404).json({ error: `Could not create URL for the converted artist on ${desiredService}.` });
                 }
                 console.log(`[SyncFM-Redirect]: Converted artist to ${desiredService}:`, convertedArtistUrl);
+
+                 res.json({ convertedArtist, convertedArtistUrl });
+           /*
                 res.redirect(convertedArtistUrl);
-                return;
+                */
+                               return; }
             default:
                 res.status(400).json({ error: "Invalid input type. Supported types are song, playlist, album, and artist." });
                 return;

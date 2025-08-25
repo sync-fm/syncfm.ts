@@ -1,4 +1,12 @@
-const enum SyncFMService {
+/* eslint-disable no-unused-vars */
+export interface SyncFMConfig {
+    SpotifyClientId?: string;
+    SpotifyClientSecret?: string;
+    SupabaseUrl?: string;
+    SupabaseKey?: string;
+}
+
+export const enum SyncFMService {
     AppleMusic = 'Apple Music',
     Spotify = 'Spotify',
     YouTube = 'YouTube',
@@ -8,7 +16,11 @@ const enum SyncFMService {
     LastFM = 'LastFM',
     AmazonMusic = 'Amazon Music',
 }
-
+export enum SyncFMExternalIdMapToDesiredService {
+    applemusic = 'AppleMusic',
+    ytmusic = 'YouTube',
+    spotify = 'Spotify',
+}
 export interface SyncFMExternalIdMap {
     AppleMusic?: string; // Apple Music ID
     Spotify?: string; // Spotify ID
@@ -26,17 +38,17 @@ export interface SyncFMArtist {
     externalIds: SyncFMExternalIdMap;
     genre?: string[];
     albums?: SyncFMAlbum[];
-    tracks?: {
+    tracks?: SyncFMArtistTrack[];
+    // Later we could add so much here xd
+}
+export interface SyncFMArtistTrack {
         name: string;
         duration?: number;
         externalIds: SyncFMExternalIdMap;
         thumbnailUrl?: string;
         contentUrl?: string;
         uploadDate?: string;
-    }; // Array of albums by the artist
-    // Later we could add so much here xd
 }
-
 export interface SyncFMPlaylist {
     syncId: string; // Hash of generic playlist info that is the same across all streaming services
     title: string; // Title of the playlist
@@ -58,7 +70,7 @@ export interface SyncFMSong {
     description?: string; // Description of the song
     artists: string[]; // Array of artist names
     album?: string; // Album name
-    releaseDate?: string; // Release date of the song
+    releaseDate?: Date; // Release date of the song
     duration?: number; // Duration of the song in seconds
     imageUrl?: string; // URL of the album cover image
     externalIds: SyncFMExternalIdMap;

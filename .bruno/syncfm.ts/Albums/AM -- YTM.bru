@@ -1,0 +1,20 @@
+meta {
+  name: AM -> YTM
+  type: http
+  seq: 5
+}
+
+get {
+  url: http://am.localhost:3000/https://music.youtube.com/playlist?list=OLAK5uy_kEaXrAmJS6cwTO6ZshOKTMXNLXpYUmWxo&si=SLyQvAuacb7bSqYi
+  body: none
+  auth: inherit
+}
+
+params:query {
+  list: OLAK5uy_kEaXrAmJS6cwTO6ZshOKTMXNLXpYUmWxo
+  si: SLyQvAuacb7bSqYi
+}
+
+settings {
+  encodeUrl: true
+}
