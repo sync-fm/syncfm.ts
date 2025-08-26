@@ -1,13 +1,6 @@
 import { createHash } from "crypto";
 import { SyncFMAlbum, SyncFMSong } from "./types/syncfm";
 
-// Helper function to normalize text (e.g., titles, artist names)
-export const normalizeText = (text: string): string => {
-    if (!text) return '';
-    // Remove "feat.", "remix", etc. to improve matching
-    return text.toLowerCase().replace(/\s*\(feat\..*?\)/i, '').replace(/\s*\(remix\)/i, '').trim();
-};
-
 export const normalizeSongData = (songInfo: SyncFMSong) => {
     // 1. Normalize the title by removing common parenthetical additions
     const cleanTitle = songInfo.title.replace(/\s*(\(feat\..*?\)|\[feat\..*?\]|\(remix\)|\[remix\]|\(live\)|\[live\])/i, '').trim();

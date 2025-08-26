@@ -1,7 +1,7 @@
 import YTMusic from "ytmusic-api";
 import { SyncFMSong, SyncFMExternalIdMap, SyncFMArtist, SyncFMAlbum } from '../types/syncfm';
 import { generateSyncArtistId, generateSyncId } from '../utils';
-import request from "superagent";
+import axios from "axios";
 import { StreamingService, MusicEntityType } from './StreamingService'; // Adjust path as needed
 
 export class YouTubeMusicService extends StreamingService {
@@ -206,17 +206,25 @@ export class YouTubeMusicService extends StreamingService {
             "X-Goog-Visitor-Id": "CgtWaTB2WWRDeEFUYyjhv-X8BQ%3D%3D"
         };
         const endpoint = "https://music.youtube.com/playlist";
-        const response = await request
-            .get(endpoint)
-            .set(standard_headers)
-            .query({ list: id });
-        let match = response.text.match(/"MPRE[_a-zA-Z0-9]+/);
-        let albumId;
-        if (match) {
-            albumId = match[0].substr(1);
-        } else {
-            throw new Error("Could not find browseId from playlist");
+
+        try {
+            const response = await axios.get(endpoint, {
+                headers: standard_headers,
+                params: {
+                    list: id
+                }
+            });
+
+            const match = response.data.match(/"MPRE[_a-zA-Z0-9]+/);
+            if (!match) {
+                throw new Error("Could not find browseId from playlist");
+            }
+
+            const albumId = match[0].substr(1);
+            return albumId;
+        } catch (error) {
+            console.error("Error fetching playlist:", error);
+            throw error;
         }
-        return albumId;
     }
 }
