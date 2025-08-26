@@ -1,10 +1,3 @@
-import dotenv from 'dotenv';
-
-// Configure dotenv to load .env file from project root
-// IMPORTANT: This must be at the very top, before any other imports that might use environment variables
-const __dirname = new URL('.', import.meta.url).pathname;
-dotenv.config({ path: `${__dirname}/../.env` });
-
 import express, { Express, Request, Response } from "express";
 import { SyncFM, SyncFMSong} from "./";
 
@@ -66,7 +59,7 @@ app.get(/^\/(.*)/, async (req: Request, res: Response): Promise<void> => {
 
         console.log(`[SyncFM-Redirect]: Received request to convert from ${inputUrl} to ${desiredService}`);
 
-        switch (syncfm.getInputTypeFromUrl(inputUrl, syncfm.getStreamingServiceFromUrl(inputUrl))) {
+        switch (syncfm.getInputTypeFromUrl(inputUrl)) {
             case "song":
                 { const songInfo: SyncFMSong = await syncfm.getInputSongInfo(inputUrl);
                 if (!songInfo) {

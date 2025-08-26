@@ -1,6 +1,6 @@
 {
   "name": "syncfm.ts",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "TypeScript API for sync.fm",
   "main": "dist/index.js",
   "type": "module",
@@ -44,7 +44,6 @@
     "@supabase/supabase-js": "^2.56.0",
     "@types/express": "^5.0.2",
     "@types/node": "^22.15.18",
-    "dotenv": "^16.5.0",
     "eslint": "^9.26.0",
     "express": "^5.1.0",
     "superagent": "^10.2.3",
