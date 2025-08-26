@@ -61,9 +61,7 @@ export class Database {
         }
         if ((existingSong as SyncFMSong)) {
             // combine existing songData.externalIds with new songData.externalIds
-            console.log("Existing external IDs:", (existingSong as SyncFMSong).externalIds);
-            console.log("New external IDs:", songData.externalIds);
-            songData.externalIds = { ...existingSong.externalIds, ...songData.externalIds };
+           songData.externalIds = { ...existingSong.externalIds, ...songData.externalIds };
             // Combine artists arrays and remove duplicates
             const combinedArtists = Array.from(new Set([...(existingSong.artists || []), ...(songData.artists || [])]));
             songData.artists = combinedArtists;
@@ -88,7 +86,6 @@ export class Database {
     }
 
     async upsertArtist(artistData: SyncFMArtist): Promise<SyncFMArtist> {
-        console.log("Upserting artist:", artistData);
         const { data: existingArtist, error: fetchError } = await this.supabase
             .from('artists')
             .select('*')
@@ -127,7 +124,6 @@ export class Database {
     }
 
     async upsertAlbum(albumData: SyncFMAlbum):Promise<SyncFMAlbum> {
-        console.log("Upserting album:", albumData);
         const { data: existingAlbum, error: fetchError } = await this.supabase
             .from('albums')
             .select('*')

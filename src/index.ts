@@ -30,7 +30,6 @@ export class SyncFM {
 
     // Function to tell what streaming service the input URL is from
     getStreamingServiceFromUrl = (url: string): "applemusic" | "spotify" | "ytmusic" => {
-        console.log("Determining streaming service from URL:", url);
         if (url.includes('apple.com')) {
             return 'applemusic';
         }
@@ -85,7 +84,6 @@ export class SyncFM {
 
     getInputArtistInfo = async (input: string): Promise<SyncFMArtist> => {
         const service = this.getStreamingServiceFromUrl(input);
-        console.log("Getting artist info from service:", service, "and input:", input);
         let artistInfo;
         switch (service) {
             case "applemusic":
@@ -144,16 +142,10 @@ export class SyncFM {
         // First lets see if we have the song in db
         let dbSong = await this.Database.getSongBySyncId(songInfo.syncId);
         if (dbSong) {
-            console.log("Found song in database:", dbSong);
             // Check if the desired service ID exists in the externalIds
             if (dbSong.externalIds && dbSong.externalIds[SyncFMExternalIdMapToDesiredService[desiredService]]) {
-                console.log(`Song already has ${desiredService} ID in database.`);
                 return dbSong;
-            } else {
-                console.log(`Song does not have ${desiredService} ID in database. Proceeding to convert.`);
             }
-        } else {
-            console.log("Song not found in database. Proceeding to convert.");
         }
         const normalizedSongData = normalizeSongData(songInfo);
         switch (desiredService) {
@@ -177,16 +169,10 @@ export class SyncFM {
         let convertedArtist;
         let dbArtist = await this.Database.getArtistBySyncId(artistInfo.syncId);
         if (dbArtist) {
-            console.log("Found artist in database:", dbArtist);
             // Check if the desired service ID exists in the externalIds
             if (dbArtist.externalIds && dbArtist.externalIds[SyncFMExternalIdMapToDesiredService[desiredService]]) {
-                console.log(`Artist already has ${desiredService} ID in database.`);
                 return dbArtist;
-            } else {
-                console.log(`Artist does not have ${desiredService} ID in database. Proceeding to convert.`);
             }
-        } else {
-            console.log("Artist not found in database. Proceeding to convert.");
         }
         switch (desiredService) {
             case "applemusic":
@@ -208,16 +194,10 @@ export class SyncFM {
         let convertedAlbum;
         let dbAlbum = await this.Database.getAlbumBySyncId(albumInfo.syncId);
         if (dbAlbum) {
-            console.log("Found album in database:", dbAlbum);
             // Check if the desired service ID exists in the externalIds
             if (dbAlbum.externalIds && dbAlbum.externalIds[SyncFMExternalIdMapToDesiredService[desiredService]]) {
-                console.log(`Album already has ${desiredService} ID in database.`);
                 return dbAlbum;
-            } else {
-                console.log(`Album does not have ${desiredService} ID in database. Proceeding to convert.`);
             }
-        } else {
-            console.log("Album not found in database. Proceeding to convert.");
         }
         let normalizedAlbum = normalizeAlbumData(albumInfo);
         switch (desiredService) {

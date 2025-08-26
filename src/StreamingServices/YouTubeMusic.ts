@@ -93,7 +93,6 @@ export class YouTubeMusicService {
 
         const ytMusicArtist = await ytmusic.getArtist(id); // ytmusic.getArtist returns a more detailed artist object
 
-        console.log(JSON.stringify(ytMusicArtist, null, 2));
         const externalIds: SyncFMExternalIdMap = { YouTube: id }; // Use the passed id (channelId)
 
         const syncFmArtist: SyncFMArtist = {
@@ -178,7 +177,6 @@ export class YouTubeMusicService {
         if (!id.startsWith("MPREb_")) {
             console.warn("Invalid YouTube Music album ID");
             const browseId = await this.getBrowseIdFromPlaylist(id);
-            console.log("Resolved browseId:", browseId);
             ytMusicAlbum = await ytmusic.getAlbum(browseId);
         } else {
             ytMusicAlbum = await ytmusic.getAlbum(id); // ytmusic.getAlbum returns a more detailed album object
@@ -232,18 +230,11 @@ export class YouTubeMusicService {
             totalTracks: totalTracks,
         };
 
-        console.log("Found YouTube Music album:", syncFMAlbum.title, "by", syncFMAlbum.artists.join(", "));
         return syncFMAlbum;
     }
 
     getYouTubeAlbumFromSearchQuery = async (query: string): Promise<SyncFMAlbum> => {
         const ytmusic = await this.getInstance();
-
-        // We can use a more specific search query to improve accuracy
-        // For example, if we have an artist, we can append it to the query
-        console.log("Searching YouTube Music for album with query:", query);
-
-        // Use the searchAlbums function from the ytmusic API
         const searchResults = await ytmusic.searchAlbums(query);
 
         let bestMatch: any = null;
@@ -339,7 +330,6 @@ export class YouTubeMusicService {
             totalTracks: totalTracks,
         };
 
-        console.log("Found YouTube Music album:", syncFMAlbum.title, "by", syncFMAlbum.artists.join(", "));
         return syncFMAlbum;
     };
 
@@ -396,7 +386,6 @@ export class YouTubeMusicService {
     }
 
     getYouTubeMusicInputType = function (url: string): "song" | "playlist" | "album" | "artist" | null {
-        console.log("Determining YouTube Music input type from URL:", url);
         const urlParts = url.split("/");
         if (urlParts.length < 2) {
             return null;

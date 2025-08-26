@@ -92,14 +92,12 @@ export class AppleMusicService {
   }
 
   async getSongDataFromUrl(url: string): Promise<AppleMusicSong> {
-    console.log("Fetching Apple Music song data from URL:", url);
     try {
       const response = await fetch(url);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       const html = await response.text();
-      //console.log(html);
 
       const embeddedSongInfo = html.split(`<script id=schema:song type="application/ld+json">`)[1]?.split(`</script>`)[0];
       const trimmedSongInfo = embeddedSongInfo?.trim();
@@ -122,7 +120,6 @@ export class AppleMusicService {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       const html = await response.text();
-      //console.log(html);
 
       const embeddedSongInfo = html.split(`<script type="application/json" id="serialized-server-data">`)[1]?.split(`</script>`)[0];
       const trimmedSongInfo = embeddedSongInfo?.trim();
@@ -180,7 +177,6 @@ export class AppleMusicService {
   }
 
   getAppleMusicIdFromURL(url: string): string {
-    console.log("Extracting Apple Music ID from URL:", url);
     // https://music.apple.com/us/album/lo-fi-hip-hop-music-for-studying/1440831234
     const parsedUrl = new URL(url);
 
@@ -209,7 +205,6 @@ export class AppleMusicService {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       const html = await response.text();
-      //console.log(html);
 
       const embeddedArtistInfo = html.split(`<script id=schema:music-group type="application/ld+json">`)[1]?.split(`</script>`)[0];
       const trimmedArtistInfo = embeddedArtistInfo?.trim();
