@@ -156,4 +156,45 @@ export class Database {
         }
         return data as SyncFMAlbum;
     }
+
+    async uploadSongAnimatedArtwork(imageBuffer: Buffer, syncId: string): Promise<string> {
+        const { error } = await this.supabase
+            .storage
+            .from('songs-animated-artwork')
+            .upload(`${syncId}.webp`, imageBuffer, {
+                cacheControl: '3600',
+                upsert: true,
+                contentType: 'image/webp'
+            });
+
+        if (error) {
+            throw new Error(`Error uploading animated artwork: ${error.message}`);
+        }
+
+        const { data } = this.supabase
+            .storage
+            .from('songs-animated-artwork')
+            .getPublicUrl(`${syncId}.webp`);
+
+        if (!data || !data.publicUrl) {
+            throw new Error('Error retrieving public URL for animated artwork');
+        }
+        const publicURL = data.publicUrl.split('?')[0];
+
+        return publicURL;
+    }
+
+    async getSongAnimatedArtworkUrl(syncId: string): Promise<string | null> {
+        const { data } = this.supabase
+            .storage
+            .from('songs-animated-artwork')
+            .getPublicUrl(`${syncId}.webp`);
+
+        if (!data || !data.publicUrl) {
+            return null;
+        }
+        const publicURL = data.publicUrl.split('?')[0];
+
+        return publicURL;
+    }
 }

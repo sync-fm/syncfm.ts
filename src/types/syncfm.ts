@@ -73,6 +73,7 @@ export interface SyncFMSong {
     releaseDate?: Date; // Release date of the song
     duration?: number; // Duration of the song in seconds
     imageUrl?: string; // URL of the album cover image
+    animatedImageUrl?: string; // URL of the animated album cover image (if available)
     externalIds: SyncFMExternalIdMap;
     explicit?: boolean; // Whether the song is explicit or not
 }
