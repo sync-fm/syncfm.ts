@@ -41,6 +41,10 @@ export class SyncFM {
         }
         return service;
     }
+    
+    __INTERNAL_getService(name: ServiceName): StreamingService {
+        return this.getService(name);
+    }
 
     getStreamingServiceFromUrl = (url: string): ServiceName | null => {
         if (url.includes('apple.com')) return 'applemusic';

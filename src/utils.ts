@@ -3,10 +3,11 @@ import { SyncFMAlbum, SyncFMSong } from "./types/syncfm";
 
 export const normalizeSongData = (songInfo: SyncFMSong) => {
     // 1. Normalize the title by removing common parenthetical additions
-    const cleanTitle = songInfo.title.replace(/\s*(\(feat\..*?\)|\[feat\..*?\]|\(remix\)|\[remix\]|\(live\)|\[live\])/i, '').trim();
+    let cleanTitle = songInfo.title;
+    // Remove content in parentheses and brackets globally
+    cleanTitle = cleanTitle.replace(/\s*\([^)]*\)/g, '').replace(/\s*\[[^]]*\]/g, '').trim();
 
     // 2. Normalize artists by ensuring all featured artists are included
-    // Split any artist strings that contain multiple artists separated by commas, ampersands, or "and"
     let normalizedArtists: string[] = [];
     songInfo.artists.forEach(artistStr => {
       const splitArtists = artistStr.split(/[,&]\s*|\s* and \s*/i).map(a => a.trim()).filter(a => a.length > 0);
@@ -14,7 +15,6 @@ export const normalizeSongData = (songInfo: SyncFMSong) => {
     });
     let allArtists = normalizedArtists;
     if (songInfo.title.includes('feat.')) {
-        // Extract artists from the title if they aren't in the artists array
         const featuredArtistsRegex = /\(feat\. (.*?)\)/i;
         const match = songInfo.title.match(featuredArtistsRegex);
         if (match && match[1]) {
@@ -26,7 +26,6 @@ export const normalizeSongData = (songInfo: SyncFMSong) => {
             });
         }
     }
-    // Remove duplicates
     allArtists = Array.from(new Set(allArtists));
 
     return {
@@ -36,13 +35,11 @@ export const normalizeSongData = (songInfo: SyncFMSong) => {
 };
 export const normalizeAlbumData = (albumInfo: SyncFMAlbum) => {
     // 1. Normalize the title by removing common parenthetical and bracketed additions
-    const cleanTitle = albumInfo.title
-        .replace(/\s*(\(feat\..*?\)|\[feat\..*?\]|\(remix\)|\[remix\]|\(live\)|\[live\])/i, '')
-        .replace(/\s*(\(single\)|\[single\]|\(ep\)|\[ep\]|-?\s*single|-?\s*ep|-?\s*album)/i, '')
-        .trim();
+    let cleanTitle = albumInfo.title;
+    cleanTitle = cleanTitle.replace(/\s*\([^)]*\)/g, '').replace(/\s*\[[^]]*\]/g, '');
+    cleanTitle = cleanTitle.replace(/-?\s*(single|ep|album)$/i, '').trim();
 
     // 2. Normalize artists by ensuring all featured artists are included
-    // Split any artist strings that contain multiple artists separated by commas, ampersands, or "and"
     let normalizedArtists: string[] = [];
     albumInfo.artists.forEach(artistStr => {
       const splitArtists = artistStr.split(/[,&]\s*|\s* and \s*/i).map(a => a.trim()).filter(a => a.length > 0);
@@ -50,7 +47,6 @@ export const normalizeAlbumData = (albumInfo: SyncFMAlbum) => {
     });
     let allArtists = normalizedArtists;
     if (albumInfo.title.includes('feat.')) {
-        // Extract artists from the title if they aren't in the artists array
         const featuredArtistsRegex = /\(feat\. (.*?)\)/i;
         const match = albumInfo.title.match(featuredArtistsRegex);
         if (match && match[1]) {
@@ -62,7 +58,6 @@ export const normalizeAlbumData = (albumInfo: SyncFMAlbum) => {
             });
         }
     }
-    // Remove duplicates
     allArtists = Array.from(new Set(allArtists));
 
     return {
@@ -75,8 +70,8 @@ export const generateSyncId = (title: string, artists: string[], duration: numbe
 
   // Process title: lowercase, remove content in parentheses/brackets, take first part if split by separators
   let processedTitle = title.toLowerCase();
-  processedTitle = processedTitle.replace(/\s*\([^)]*\)\s*/g, ''); // Remove content in parentheses
-  processedTitle = processedTitle.replace(/\s*\[[^]]*\]\s*/g, ''); // Remove content in brackets
+  processedTitle = processedTitle.replace(/\s*\([^)]*\)/g, ''); // Remove content in parentheses
+  processedTitle = processedTitle.replace(/\s*\[[^]]*\]/g, ''); // Remove content in brackets
   processedTitle = processedTitle.split(/\s*-\s*|\s*—\s*|\s*\|\s*/)[0].trim();
 
    let normalizedArtists: string[] = [];
@@ -100,8 +95,8 @@ export const generateSyncId = (title: string, artists: string[], duration: numbe
 export const generateSyncArtistId = (name: string): string => {
     // Process name: lowercase, remove content in parentheses/brackets, take first part if split by separators
     let processedName = name.toLowerCase();
-    processedName = processedName.replace(/\s*\([^)]*\)\s*/g, ''); // Remove content in parentheses
-    processedName = processedName.replace(/\s*\[[^]]*\]\s*/g, ''); // Remove content in brackets
+    processedName = processedName.replace(/\s*\([^)]*\)/g, ''); // Remove content in parentheses
+    processedName = processedName.replace(/\s*\[[^]]*\]/g, ''); // Remove content in brackets
     processedName = processedName.split(/\s*-\s*|\s*—\s*|\s*\|\s*/)[0].trim();
     
     const hash = createHash('sha256')
