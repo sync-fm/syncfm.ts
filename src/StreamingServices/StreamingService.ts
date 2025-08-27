@@ -19,6 +19,8 @@ export abstract class StreamingService {
 
     // Utility methods that should be implemented by each service
     abstract getIdFromUrl(url: string): string | null;
+    // We should probably strip tracking info from URLs in each service implementation.
+    
     abstract getTypeFromUrl(url: string): MusicEntityType | null;
     abstract createUrl(id: string, type: MusicEntityType): string;
 }

@@ -240,13 +240,6 @@ export class AppleMusicService extends StreamingService {
     try {
       const parsedUrl = new URL(url);
 
-      // For songs, the ID is always in the 'i' query parameter
-      const songId = parsedUrl.searchParams.get('i');
-      if (songId) {
-        return songId;
-      }
-
-      // For albums/artists, it's the last numeric part of the path
       const pathParts = parsedUrl.pathname.split('/');
       for (let i = pathParts.length - 1; i >= 0; i--) {
         const part = pathParts[i];

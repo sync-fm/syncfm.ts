@@ -1,6 +1,6 @@
 {
   "name": "syncfm.ts",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "TypeScript API for sync.fm",
   "main": "dist/index.js",
   "type": "module",
@@ -12,7 +12,8 @@
     "start": "node dist/server.js",
     "build": "rm -rf ./dist && tsc --build --verbose --diagnostics && tsc-alias",
     "test": "vitest run",
-    "lint": "eslint . --ext .ts"
+    "lint": "eslint . --ext .ts",
+    "dev": "bunx @dotenvx/dotenvx run -f .env -- bun --watch src/server.ts"
   },
   "exports": {
     ".": {
