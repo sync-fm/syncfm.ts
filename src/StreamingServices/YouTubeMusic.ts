@@ -111,6 +111,24 @@ export class YouTubeMusicService extends StreamingService {
         return syncFMAlbum;
     }
 
+    private internal_YTMSongToSyncFMSong(ytMusicSong: YouTubeMusicSong): SyncFMSong {
+        const externalIds: SyncFMExternalIdMap = { YouTube: ytMusicSong.videoId };
+
+        const syncFmSong: SyncFMSong = {
+            syncId: generateSyncId(ytMusicSong.name, ytMusicSong.artist ? [ytMusicSong.artist.name] : [], ytMusicSong.duration),
+            title: ytMusicSong.name,
+            description: undefined,
+            artists: ytMusicSong.artist ? [ytMusicSong.artist.name] : [],
+            album: undefined,
+            releaseDate: undefined,
+            duration: ytMusicSong.duration,
+            imageUrl: ytMusicSong.thumbnails[0]?.url,
+            externalIds: externalIds,
+            explicit: undefined,
+        };
+        return syncFmSong;
+    }
+
     async getSongBySearchQuery(query: string): Promise<SyncFMSong> {
         const ytmusic = await this.getInstance();
         const searchResults = await ytmusic.searchSongs(query);
@@ -118,7 +136,10 @@ export class YouTubeMusicService extends StreamingService {
             throw new Error("No results found");
         }
         const songResult = searchResults[0];
-        return this.getSongById(songResult.videoId);
+        return this.internal_YTMSongToSyncFMSong(songResult);
+        // Normally the code below would work just fine, but we sometimes get a weird edge-case where the videoId isnt valid for getSong,
+        // So for now we just convert the search result directly
+        // return this.getSongById(songResult.videoId);
     }
 
     async getArtistBySearchQuery(query: string): Promise<SyncFMArtist> {
@@ -227,4 +248,24 @@ export class YouTubeMusicService extends StreamingService {
             throw error;
         }
     }
+}
+
+interface YouTubeMusicSong {
+    type: "SONG";
+    name: string;
+    videoId: string;
+    artist: {
+        artistId: string;
+        name: string;
+    };
+    album: {
+        name: string;
+        albumId: string;
+    };
+    duration: number;
+    thumbnails: {
+        url: string;
+        width: number;
+        height: number;
+    }[];
 }
