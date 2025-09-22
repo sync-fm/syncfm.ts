@@ -5,6 +5,7 @@ export interface SyncFMConfig {
     SupabaseUrl?: string;
     SupabaseKey?: string;
 }
+export type ServiceName = "applemusic" | "spotify" | "ytmusic";
 
 export const enum SyncFMService {
     AppleMusic = 'Apple Music',
@@ -39,15 +40,16 @@ export interface SyncFMArtist {
     genre?: string[];
     albums?: SyncFMAlbum[];
     tracks?: SyncFMArtistTrack[];
+    previouslyFailedServices?: ServiceName[]; // Array of services where the song conversion previously failed, so we can retry when we get the chance.
     // Later we could add so much here xd
 }
 export interface SyncFMArtistTrack {
-        name: string;
-        duration?: number;
-        externalIds: SyncFMExternalIdMap;
-        thumbnailUrl?: string;
-        contentUrl?: string;
-        uploadDate?: string;
+    name: string;
+    duration?: number;
+    externalIds: SyncFMExternalIdMap;
+    thumbnailUrl?: string;
+    contentUrl?: string;
+    uploadDate?: string;
 }
 export interface SyncFMPlaylist {
     syncId: string; // Hash of generic playlist info that is the same across all streaming services
@@ -56,6 +58,7 @@ export interface SyncFMPlaylist {
     imageUrl?: string; // URL of the playlist cover image
     originalService: SyncFMService; // Original streaming service of the playlist
     externalIds: SyncFMExternalIdMap;
+    previouslyFailedServices?: ServiceName[]; // Array of services where the song conversion previously failed, so we can retry when we get the chance.
     songs?: SyncFMSong[]; // Array of songs in the playlist
     totalTracks?: number; // Total number of tracks in the playlist
     duration?: number; // Duration of the playlist in seconds
@@ -76,6 +79,7 @@ export interface SyncFMSong {
     animatedImageUrl?: string; // URL of the animated album cover image (if available)
     externalIds: SyncFMExternalIdMap;
     explicit?: boolean; // Whether the song is explicit or not
+    previouslyFailedServices?: ServiceName[]; // Array of services where the song conversion previously failed, so we can retry when we get the chance.
 }
 
 export interface SyncFMAlbum {
@@ -86,6 +90,7 @@ export interface SyncFMAlbum {
     releaseDate?: string; // Release date of the album
     imageUrl?: string; // URL of the album cover image
     externalIds: SyncFMExternalIdMap;
+    previouslyFailedServices?: ServiceName[]; // Array of services where the song conversion previously failed, so we can retry when we get the chance.
     songs: SyncFMSong[]; // Array of songs in the album
     totalTracks?: number; // Total number of tracks in the album
     duration?: number; // Duration of the album in seconds
