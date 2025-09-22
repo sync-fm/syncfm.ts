@@ -2,8 +2,6 @@ import { SpotifyApi, Track, Album } from '@spotify/web-api-ts-sdk';
 import { SyncFMSong, SyncFMExternalIdMap, SyncFMArtist, SyncFMAlbum } from '../../types/syncfm';
 import { generateSyncArtistId, generateSyncId } from '../../utils';
 import { StreamingService, MusicEntityType } from '../StreamingService'; // Adjust path as needed
-import { getCanvasFromId } from './GetCanvas';
-import fs from 'fs';
 
 export class SpotifyService extends StreamingService {
     private readonly clientId: string;
@@ -184,16 +182,5 @@ export class SpotifyService extends StreamingService {
     createUrl(id: string, type: MusicEntityType): string {
         const typePath = type === 'song' ? 'track' : type;
         return `https://open.spotify.com/${typePath}/${id}`;
-    }
-
-    async getCanvas(id: string): Promise<string | null> {
-        const token = await this.sdk.getAccessToken();
-        if (!token) {
-            console.error("Could not obtain Spotify access token for Canvas request");
-            return null;
-        }
-        const canvasData = await getCanvasFromId(id, token.access_token);
-        fs.writeFileSync("canvasdata.json", JSON.stringify(canvasData, null, 2));
-        return "uwu"
     }
 }
