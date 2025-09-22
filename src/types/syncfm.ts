@@ -5,7 +5,9 @@ export interface SyncFMConfig {
     SupabaseUrl?: string;
     SupabaseKey?: string;
 }
+
 export type ServiceName = "applemusic" | "spotify" | "ytmusic";
+export type MusicEntityType = "song" | "album" | "artist" | "playlist";
 
 export const enum SyncFMService {
     AppleMusic = 'Apple Music',
