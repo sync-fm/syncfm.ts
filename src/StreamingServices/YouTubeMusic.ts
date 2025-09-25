@@ -1,8 +1,8 @@
-import YTMusic from "ytmusic-api";
+import YTMusic from "@syncfm/ytmusic-api";
 import { SyncFMSong, SyncFMExternalIdMap, SyncFMArtist, SyncFMAlbum } from '../types/syncfm';
 import { generateSyncArtistId, generateSyncId } from '../utils';
 import axios from "axios";
-import { StreamingService, MusicEntityType } from './StreamingService'; // Adjust path as needed
+import { StreamingService, MusicEntityType } from './StreamingService';
 
 export class YouTubeMusicService extends StreamingService {
     private ytmusic: YTMusic;
@@ -131,7 +131,13 @@ export class YouTubeMusicService extends StreamingService {
 
     async getSongBySearchQuery(query: string): Promise<SyncFMSong> {
         const ytmusic = await this.getInstance();
-        const searchResults = await ytmusic.searchSongs(query);
+        let searchResults;
+        try {
+            searchResults = await ytmusic.searchSongs(query);
+        } catch (error) {
+            console.error("Error during YouTube Music search:", error);
+            throw new Error("YouTube Music search failed");
+        }
         if (searchResults.length === 0) {
             throw new Error("No results found");
         }

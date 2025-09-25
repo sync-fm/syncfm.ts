@@ -1,6 +1,6 @@
 import { SpotifyApi, Track, Album } from '@spotify/web-api-ts-sdk';
 import { SyncFMSong, SyncFMExternalIdMap, SyncFMArtist, SyncFMAlbum } from '../../types/syncfm';
-import { generateSyncArtistId, generateSyncId } from '../../utils';
+import { generateSyncArtistId, generateSyncId, parseDurationWithFudge } from '../../utils';
 import { StreamingService, MusicEntityType } from '../StreamingService'; // Adjust path as needed
 
 export class SpotifyService extends StreamingService {
@@ -33,13 +33,13 @@ export class SpotifyService extends StreamingService {
         const externalIds: SyncFMExternalIdMap = { Spotify: spotifySong.id };
 
         const syncFmSong: SyncFMSong = {
-            syncId: generateSyncId(spotifySong.name, spotifySong.artists.map(a => a.name), spotifySong.duration_ms / 1000),
+            syncId: generateSyncId(spotifySong.name, spotifySong.artists.map(a => a.name), parseDurationWithFudge(spotifySong.duration_ms)),
             title: spotifySong.name,
             description: undefined,
             artists: spotifySong.artists.map(a => a.name),
             album: spotifySong.album.name,
             releaseDate: new Date(spotifySong.album.release_date),
-            duration: spotifySong.duration_ms / 1000,
+            duration: parseDurationWithFudge(spotifySong.duration_ms),
             imageUrl: spotifySong.album.images[0]?.url,
             externalIds: externalIds,
             explicit: spotifySong.explicit,
@@ -72,7 +72,9 @@ export class SpotifyService extends StreamingService {
         if (spotifyAlbum.tracks.items.length > 0) {
             songs = spotifyAlbum.tracks.items.map(track => {
                 const trackArtists = track.artists.map(a => a.name);
-                const songDuration = track.duration_ms / 1000;
+
+                const songDuration = parseDurationWithFudge(track.duration_ms);
+
                 const externalTrackIds: SyncFMExternalIdMap = { Spotify: track.id };
 
                 return {
@@ -81,7 +83,7 @@ export class SpotifyService extends StreamingService {
                     artists: trackArtists,
                     album: spotifyAlbum.name,
                     releaseDate: new Date(spotifyAlbum.release_date),
-                    duration: songDuration,
+                    duration: parseDurationWithFudge(track.duration_ms),
                     imageUrl: spotifyAlbum.images[0]?.url,
                     externalIds: externalTrackIds,
                     explicit: track.explicit,

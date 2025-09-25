@@ -149,6 +149,7 @@ export class SyncFM {
 
     private async checkDatabaseForExistingConversion<T extends SyncFMSong | SyncFMArtist | SyncFMAlbum>(input: T, desiredService: ServiceName, inputType: MusicEntityType): Promise<{ data: T | null, foundInDb: boolean }> {
         let dbItem: T | null = null;
+
         switch (inputType) {
             case 'song':
                 dbItem = await this.Database.getSongBySyncId(input.syncId) as T | null;
@@ -246,9 +247,6 @@ export class SyncFM {
                 console.warn(result.error);
             }
             if (result.data) {
-                if (result.serviceName === desiredService) {
-                    desiredOutput = result.data;
-                }
                 switch (inputType) {
                     case 'song':
                         convertedItem = await this.Database.upsertSong(result.data as SyncFMSong) as T;
@@ -265,8 +263,23 @@ export class SyncFM {
             }
         }
 
-        if (desiredOutput) {
-            return desiredOutput;
+        // Now we should return the "finished" item from the DB to ensure we have all external IDs
+        switch (inputType) {
+            case 'song':
+                convertedItem = await this.Database.getSongBySyncId(inputInfo.syncId) as T;
+                break;
+            case 'artist':
+                convertedItem = await this.Database.getArtistBySyncId(inputInfo.syncId) as T;
+                break;
+            case 'album':
+                convertedItem = await this.Database.getAlbumBySyncId(inputInfo.syncId) as T;
+                break;
+            default:
+                throw new Error(`Unsupported input type: ${inputType}`);
+        }
+
+        if (convertedItem && convertedItem.externalIds && convertedItem.externalIds[SyncFMExternalIdMapToDesiredService[desiredService]]) {
+            return convertedItem;
         }
 
         throw new Error(`Could not convert ${inputType} to desired service: ${desiredService}`);

@@ -46,7 +46,7 @@ export interface SyncFMArtist {
     // Later we could add so much here xd
 }
 export interface SyncFMArtistTrack {
-    name: string;
+    title: string;
     duration?: number;
     externalIds: SyncFMExternalIdMap;
     thumbnailUrl?: string;

@@ -1,6 +1,6 @@
 {
   "name": "syncfm.ts",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "TypeScript API for sync.fm",
   "main": "dist/index.js",
   "type": "module",
@@ -47,6 +47,7 @@
     "@eslint/js": "^9.26.0",
     "@spotify/web-api-ts-sdk": "^1.2.0",
     "@supabase/supabase-js": "^2.56.0",
+    "@syncfm/ytmusic-api": "^5.3.2",
     "@types/express": "^5.0.2",
     "@types/node": "^22.15.18",
     "axios": "^1.11.0",
@@ -54,8 +55,7 @@
     "express": "^5.1.0",
     "tsc-alias": "^1.8.16",
     "typescript": "^5.8.3",
-    "typescript-eslint": "^8.32.1",
-    "ytmusic-api": "^5.3.0"
+    "typescript-eslint": "^8.32.1"
   },
   "devDependencies": {
     "@types/supertest": "^6.0.3",

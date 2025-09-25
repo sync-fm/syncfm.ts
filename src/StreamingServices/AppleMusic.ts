@@ -66,14 +66,16 @@ export class AppleMusicService extends StreamingService {
 
     const externalIds: SyncFMExternalIdMap = { AppleMusic: id };
 
+    const songDuration = Math.round(this.parseISO8601Duration(rawSongData.audio?.duration || rawSongData.timeRequired) || 0);
+
     const syncFmSong: SyncFMSong = {
-      syncId: generateSyncId(rawSongData.audio?.name || rawSongData.name, rawSongData.audio?.byArtist?.map(a => a.name) || [], this.parseISO8601Duration(rawSongData.audio?.duration || rawSongData.timeRequired)),
+      syncId: generateSyncId(rawSongData.audio?.name || rawSongData.name, rawSongData.audio?.byArtist?.map(a => a.name) || [], songDuration),
       title: rawSongData.audio?.name || rawSongData.name,
       description: rawSongData.audio?.description || rawSongData.description,
       artists: rawSongData.audio?.byArtist?.map(a => a.name) || [],
       album: rawSongData.audio?.album?.name,
       releaseDate: new Date(rawSongData.audio?.datePublished),
-      duration: this.parseISO8601Duration(rawSongData.audio?.duration || rawSongData.timeRequired),
+      duration: songDuration,
       imageUrl: rawSongData.audio?.album?.image || rawSongData.audio?.image || rawSongData.image,
       externalIds: externalIds,
       explicit: undefined,
@@ -95,7 +97,7 @@ export class AppleMusicService extends StreamingService {
         const jsonData = JSON.parse(trimmedArtistInfo);
         const tracks = jsonData.tracks?.map((track: any) => ({
           title: track.name,
-          duration: this.parseISO8601Duration(track.duration),
+          duration: Math.round(this.parseISO8601Duration(track.duration) || 0),
           thumbnailUrl: track.audio.thumbnailUrl,
           uploadDate: track.audio.uploadDate,
           contentUrl: track.audio.contentUrl,
@@ -136,7 +138,7 @@ export class AppleMusicService extends StreamingService {
         const albumArtists = jsonData.byArtist?.map((artist: any) => artist.name) || [];
 
         const songs: SyncFMSong[] = (jsonData.tracks || []).map((track: any) => {
-          const songDuration = this.parseISO8601Duration(track.duration);
+          const songDuration = Math.round(this.parseISO8601Duration(track.duration) || 0);
           const appleMusicSongId = track.url?.split('/').pop();
 
           const externalSongIds: SyncFMExternalIdMap = {};
@@ -214,8 +216,15 @@ export class AppleMusicService extends StreamingService {
       const trimmedSongInfo = embeddedSongInfo?.trim();
       if (trimmedSongInfo) {
         const jsonData = JSON.parse(trimmedSongInfo);
+        let firstResult = jsonData[0]?.data?.sections[0].items?.find((item: any) => item.itemKind === type);
 
-        const firstResult = jsonData[0]?.data?.sections[0].items?.find((item: any) => item.itemKind === type);
+        if (type === "albums") {
+          // When trying to find an album, prefer non-singles at first.
+          firstResult = jsonData[0]?.data?.sections[0].items?.find((item: any) => item.itemKind === type && !item.title.toLowerCase().trim().includes(" - single"));
+        }
+        if (!firstResult) {
+          firstResult = jsonData[0]?.data?.sections[0].items?.find((item: any) => item.itemKind === type);
+        }
 
         if (!firstResult) {
           throw new Error(`Could not find ${type} in search result`);
@@ -303,15 +312,25 @@ export class AppleMusicService extends StreamingService {
 
   private parseISO8601Duration(durationString: string | undefined): number | undefined {
     if (!durationString) return undefined;
+
     const match = durationString.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?/);
     if (!match) {
       console.warn(`Could not parse ISO 8601 duration: ${durationString}`);
       return undefined;
     }
+
     const hours = parseInt(match[1] || '0', 10);
     const minutes = parseInt(match[2] || '0', 10);
     const seconds = parseFloat(match[3] || '0');
-    return hours * 3600 + minutes * 60 + seconds;
+
+    const totalSeconds = hours * 3600 + minutes * 60 + seconds;
+
+    // AM uses fuckass ISO8601 durations that does NOT line up with the way 
+    // we calc durations from other services.
+    // BUT, they seem to always be off by 1 second. 
+    // so we add a sec, and look the other way.
+    return totalSeconds + 1
   }
+
 }
 

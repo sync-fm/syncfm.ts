@@ -149,18 +149,34 @@ export const normalizeAlbumData = (albumInfo: SyncFMAlbum) => {
     };
 };
 
+function bucketDuration(seconds: number): number {
+    const bucketSize = 5;
+    return Math.round(seconds / bucketSize) * bucketSize;
+}
+
+const sortAlphaNum = (a: string, b: string) => a.localeCompare(b, 'en', { numeric: true })
+
 export const generateSyncId = (title: string, artists: string[], duration: number): string => {
     const canonicalTitle = normalizeTitle(title);
     const canonicalArtists = normalizeArtists(artists);
 
+    // Extract more artists from title if possible
+    const titleArtists = extractAllArtistsFromTitle(title);
+    titleArtists.forEach(ta => {
+        if (!canonicalArtists.includes(ta)) {
+            canonicalArtists.push(ta);
+        }
+    });
+
+    // Sort artists alphanumerically to avoid ordering issues
+    const sorted = canonicalArtists.sort(sortAlphaNum);
     // Choose canonical artist: prefer first deduped (preserve provider primary artist), else empty string
-    const firstArtist = canonicalArtists.length > 0 ? canonicalArtists[0] : '';
+    const firstArtist = sorted.length > 0 ? sorted[0] : '';
 
     // Duration bucketing: use 5s buckets to tolerate small per-provider differences (e.g. 186 vs 187).
-    const bucketSize = 5;
-    const roundedDuration = Math.round(duration / bucketSize) * bucketSize;
+    const roundedDuration = bucketDuration(duration);
 
-    const stringToHash = `${canonicalTitle}_${firstArtist}_${roundedDuration}`;
+    const stringToHash = `${canonicalTitle}_${firstArtist}_${roundedDuration}`.toLowerCase();
 
     const hash = createHash('sha256')
         .update(stringToHash)
@@ -175,3 +191,77 @@ export const generateSyncArtistId = (name: string): string => {
         .digest('hex');
     return hash;
 };
+
+/**
+ * A utility function to split a string of artists by common separators.
+ * Handles separators like '&', ',', 'vs', and 'and'.
+ * @param artistString The string containing one or more artist names.
+ * @returns An array of cleaned artist names.
+ */
+const splitArtists = (artistString: string): string[] => {
+    if (!artistString) return [];
+    // Regex to split by " & ", " vs ", " vs. ", ", ", " and "
+    const artistSeparators = /\s+(?:&|vs\.?|and|,)\s+/i;
+    return artistString
+        .split(artistSeparators)
+        .map(name => name.trim())
+        .filter(Boolean); // Filter out any empty strings
+};
+
+/**
+ * Aggressively parses a music video title to extract all associated artists,
+ * including primary artists, features, and remixers, into a single array.
+ *
+ * @param {string} title The raw music video title string.
+ * @returns {string[]} A de-duplicated array of all identified artist names.
+ */
+export const extractAllArtistsFromTitle = (title: string): string[] => {
+    if (!title) return [];
+
+    const allArtists: string[] = [];
+    let workingTitle = title;
+
+    // Extract artists from content within {} ()
+    const bracketRegex = /[\[\(](.*?)[\]\)]/g;
+    const bracketMatches = workingTitle.match(bracketRegex) || [];
+
+    const featRegex = /^(?:feat|ft|featuring)\.?\s+/i;
+    const remixRegex = /\s+(?:remix|bootleg|edit|mix)$/i;
+    // A general regex to exclude obvious non-artist metadata
+    const metaRegex = /official|video|audio|lyric|visualizer|4k|hd|explicit/i;
+
+    for (const match of bracketMatches) {
+        const innerContent = match.substring(1, match.length - 1).trim();
+
+        if (featRegex.test(innerContent)) {
+            const featured = innerContent.replace(featRegex, '').trim();
+            allArtists.push(...splitArtists(featured));
+        } else if (remixRegex.test(innerContent)) {
+            const remixer = innerContent.replace(remixRegex, '').trim();
+            allArtists.push(...splitArtists(remixer));
+        } else if (!metaRegex.test(innerContent)) {
+            // If it's not metadata, assume it's a collaborator/artist
+            allArtists.push(...splitArtists(innerContent));
+        }
+
+        // Clean the match from the title for the next step
+        workingTitle = workingTitle.replace(match, '');
+    }
+
+    // Step 2: Parse the primary artist(s) from the cleaned string
+    const mainSeparatorRegex = /\s+[-–|:]\s+/;
+    const parts = workingTitle.split(mainSeparatorRegex);
+
+    if (parts.length > 1) {
+        const artistPart = parts[0].trim();
+        allArtists.push(...splitArtists(artistPart));
+    }
+
+    //  Return a de-duplicated list of artists
+    return [...new Set(allArtists)];
+};
+
+// Attempt to convert durations in ms to seconds, with fudge
+export function parseDurationWithFudge(durationMs: number): number {
+    return Math.floor((durationMs + 999) / 1000);
+}
