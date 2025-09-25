@@ -1,6 +1,6 @@
 {
   "name": "syncfm.ts",
-  "version": "1.0.9",
+  "version": "1.1.0",
   "description": "TypeScript API for sync.fm",
   "main": "dist/index.js",
   "type": "module",
