@@ -7,12 +7,12 @@
         "@eslint/js": "^9.26.0",
         "@spotify/web-api-ts-sdk": "^1.2.0",
         "@supabase/supabase-js": "^2.56.0",
-        "@syncfm/ytmusic-api": "^5.3.2",
         "@types/express": "^5.0.2",
         "@types/node": "^22.15.18",
         "axios": "^1.11.0",
         "eslint": "^9.26.0",
         "express": "^5.1.0",
+        "syncfm.ts": "^1.1.0",
         "tsc-alias": "^1.8.16",
         "typescript": "^5.8.3",
         "typescript-eslint": "^8.32.1",
@@ -762,6 +762,8 @@
     "supertest": ["supertest@7.1.4", "", { "dependencies": { "methods": "^1.1.2", "superagent": "^10.2.3" } }, "sha512-tjLPs7dVyqgItVFirHYqe2T+MfWc2VOBQ8QFKKbWTA3PU7liZR8zoSpAi/C1k1ilm9RsXIKYf197oap9wXGVYg=="],
 
     "supports-color": ["supports-color@7.2.0", "", { "dependencies": { "has-flag": "^4.0.0" } }, "sha512-qpCAvRl9stuOHveKsn7HncJRvv501qIacKzQlO/+Lwxc9+0q2wLyv4Dfvt80/DPn2pqOBsJdDiogXGR9+OvwRw=="],
+
+    "syncfm.ts": ["syncfm.ts@1.1.0", "", { "dependencies": { "@eslint/js": "^9.26.0", "@spotify/web-api-ts-sdk": "^1.2.0", "@supabase/supabase-js": "^2.56.0", "@syncfm/ytmusic-api": "^5.3.2", "@types/express": "^5.0.2", "@types/node": "^22.15.18", "axios": "^1.11.0", "eslint": "^9.26.0", "express": "^5.1.0", "tsc-alias": "^1.8.16", "typescript": "^5.8.3", "typescript-eslint": "^8.32.1" }, "bin": { "syncfm": "dist/server.js" } }, "sha512-SDmgpNqnVnj38ZbjDPGxLa5hKqtuFhHknv1lwNMOo3iljGSbeo10s4yiqxuX8th50kJwnfDUxJB9gAoSjg3AaA=="],
 
     "test-exclude": ["test-exclude@7.0.1", "", { "dependencies": { "@istanbuljs/schema": "^0.1.2", "glob": "^10.4.1", "minimatch": "^9.0.4" } }, "sha512-pFYqmTw68LXVjeWJMST4+borgQP2AyMNbg1BpZh9LbyhUeNkeaPF9gzfPGUAnSMV3qPYdWUwDIjjCLiSDOl7vg=="],
 

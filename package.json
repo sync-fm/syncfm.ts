@@ -14,7 +14,9 @@
     "test": "vitest run",
     "lint": "eslint . --ext .ts",
     "dev": "bunx @dotenvx/dotenvx run -f .env -- bun --watch src/server.ts",
-    "prepack": "bun run build"
+    "prepack": "bun run paths:real && bun run build",
+    "paths:real": "sh ./scripts/use-real-paths.sh",
+    "paths:dev": "sh ./scripts/use-dev-paths.sh"
   },
   "exports": {
     ".": {
@@ -47,12 +49,12 @@
     "@eslint/js": "^9.26.0",
     "@spotify/web-api-ts-sdk": "^1.2.0",
     "@supabase/supabase-js": "^2.56.0",
-    "@syncfm/ytmusic-api": "^5.3.2",
     "@types/express": "^5.0.2",
     "@types/node": "^22.15.18",
     "axios": "^1.11.0",
     "eslint": "^9.26.0",
     "express": "^5.1.0",
+    "syncfm.ts": "^1.1.0",
     "tsc-alias": "^1.8.16",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.32.1"
