@@ -1,0 +1,552 @@
+{
+  "data": [
+    {
+      "id": "1750798717",
+      "type": "albums",
+      "href": "/v1/catalog/us/albums/1750798717?l=en-US",
+      "attributes": {
+        "artistName": "Opal In Sky",
+        "artwork": {
+          "bgColor": "111214",
+          "hasP3": false,
+          "height": 3000,
+          "textColor1": "f3b6c7",
+          "textColor2": "fb347c",
+          "textColor3": "c695a3",
+          "textColor4": "cc2d67",
+          "url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/25/97/ea/2597eabe-16f5-f036-8989-2b9f0d1fe3d4/artwork.jpg/{w}x{h}bb.jpg",
+          "width": 3000
+        },
+        "audioTraits": [
+          "lossless",
+          "lossy-stereo"
+        ],
+        "contentRating": "explicit",
+        "copyright": "℗ 2024 OPAL IN SKY",
+        "genreNames": [
+          "Metal",
+          "Music",
+          "Rock",
+          "Alternative"
+        ],
+        "isCompilation": false,
+        "isComplete": true,
+        "isMasteredForItunes": false,
+        "isPrerelease": false,
+        "isSingle": false,
+        "name": "Dream Shift",
+        "playParams": {
+          "id": "1750798717",
+          "kind": "album"
+        },
+        "recordLabel": "OPAL IN SKY",
+        "releaseDate": "2024-07-03",
+        "trackCount": 8,
+        "upc": "198675656117",
+        "url": "https://music.apple.com/us/album/dream-shift/1750798717"
+      },
+      "relationships": {
+        "artists": {
+          "href": "/v1/catalog/us/albums/1750798717/artists?l=en-US",
+          "data": [
+            {
+              "id": "1632833801",
+              "type": "artists",
+              "href": "/v1/catalog/us/artists/1632833801?l=en-US"
+            }
+          ]
+        },
+        "tracks": {
+          "href": "/v1/catalog/us/albums/1750798717/tracks?l=en-US",
+          "data": [
+            {
+              "id": "1750798719",
+              "type": "songs",
+              "href": "/v1/catalog/us/songs/1750798719?l=en-US",
+              "attributes": {
+                "albumName": "Dream Shift",
+                "artistName": "Opal In Sky",
+                "artwork": {
+                  "bgColor": "111214",
+                  "hasP3": false,
+                  "height": 3000,
+                  "textColor1": "f3b6c7",
+                  "textColor2": "fb347c",
+                  "textColor3": "c695a3",
+                  "textColor4": "cc2d67",
+                  "url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/25/97/ea/2597eabe-16f5-f036-8989-2b9f0d1fe3d4/artwork.jpg/{w}x{h}bb.jpg",
+                  "width": 3000
+                },
+                "audioLocale": "en-US",
+                "audioTraits": [
+                  "lossless",
+                  "lossy-stereo"
+                ],
+                "composerName": "Dylon Joseph Opalinsky",
+                "discNumber": 1,
+                "durationInMillis": 66767,
+                "genreNames": [
+                  "Metal",
+                  "Music",
+                  "Rock",
+                  "Alternative"
+                ],
+                "hasLyrics": true,
+                "hasTimeSyncedLyrics": true,
+                "isAppleDigitalMaster": false,
+                "isMasteredForItunes": false,
+                "isVocalAttenuationAllowed": true,
+                "isrc": "QZNWT2425129",
+                "name": "Projection",
+                "playParams": {
+                  "id": "1750798719",
+                  "kind": "song"
+                },
+                "previews": [
+                  {
+                    "url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/ad/fa/11/adfa11a0-d39b-e20c-be51-11e0d67826cb/mzaf_3330901804257982468.plus.aac.p.m4a"
+                  }
+                ],
+                "releaseDate": "2024-07-03",
+                "trackNumber": 1,
+                "url": "https://music.apple.com/us/album/projection/1750798717?i=1750798719"
+              },
+              "meta": {
+                "contentVersion": {
+                  "MZ_INDEXER": 1760645724370,
+                  "RTCI": 1760379935565
+                }
+              }
+            },
+            {
+              "id": "1750798720",
+              "type": "songs",
+              "href": "/v1/catalog/us/songs/1750798720?l=en-US",
+              "attributes": {
+                "albumName": "Dream Shift",
+                "artistName": "Opal In Sky",
+                "artwork": {
+                  "bgColor": "111214",
+                  "hasP3": false,
+                  "height": 3000,
+                  "textColor1": "f3b6c7",
+                  "textColor2": "fb347c",
+                  "textColor3": "c695a3",
+                  "textColor4": "cc2d67",
+                  "url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/25/97/ea/2597eabe-16f5-f036-8989-2b9f0d1fe3d4/artwork.jpg/{w}x{h}bb.jpg",
+                  "width": 3000
+                },
+                "audioLocale": "en-US",
+                "audioTraits": [
+                  "lossless",
+                  "lossy-stereo"
+                ],
+                "composerName": "Dylon Joseph Opalinsky",
+                "contentRating": "explicit",
+                "discNumber": 1,
+                "durationInMillis": 262767,
+                "genreNames": [
+                  "Metal",
+                  "Music",
+                  "Rock",
+                  "Alternative"
+                ],
+                "hasLyrics": true,
+                "hasTimeSyncedLyrics": true,
+                "isAppleDigitalMaster": false,
+                "isMasteredForItunes": false,
+                "isVocalAttenuationAllowed": true,
+                "isrc": "QZNWT2425130",
+                "name": "Rediscover",
+                "playParams": {
+                  "id": "1750798720",
+                  "kind": "song"
+                },
+                "previews": [
+                  {
+                    "url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/f7/2c/b9/f72cb985-efe2-b489-e204-d5021e059c9d/mzaf_11429213585083566398.plus.aac.ep.m4a"
+                  }
+                ],
+                "releaseDate": "2024-07-03",
+                "trackNumber": 2,
+                "url": "https://music.apple.com/us/album/rediscover/1750798717?i=1750798720"
+              },
+              "meta": {
+                "contentVersion": {
+                  "MZ_INDEXER": 1760645974815,
+                  "RTCI": 1755314360415
+                }
+              }
+            },
+            {
+              "id": "1750798721",
+              "type": "songs",
+              "href": "/v1/catalog/us/songs/1750798721?l=en-US",
+              "attributes": {
+                "albumName": "Dream Shift",
+                "artistName": "Opal In Sky",
+                "artwork": {
+                  "bgColor": "111214",
+                  "hasP3": false,
+                  "height": 3000,
+                  "textColor1": "f3b6c7",
+                  "textColor2": "fb347c",
+                  "textColor3": "c695a3",
+                  "textColor4": "cc2d67",
+                  "url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/25/97/ea/2597eabe-16f5-f036-8989-2b9f0d1fe3d4/artwork.jpg/{w}x{h}bb.jpg",
+                  "width": 3000
+                },
+                "audioLocale": "en-US",
+                "audioTraits": [
+                  "lossless",
+                  "lossy-stereo"
+                ],
+                "composerName": "Dylon Joseph Opalinsky",
+                "contentRating": "explicit",
+                "discNumber": 1,
+                "durationInMillis": 206434,
+                "genreNames": [
+                  "Metal",
+                  "Music",
+                  "Rock",
+                  "Alternative"
+                ],
+                "hasLyrics": true,
+                "hasTimeSyncedLyrics": true,
+                "isAppleDigitalMaster": false,
+                "isMasteredForItunes": false,
+                "isVocalAttenuationAllowed": true,
+                "isrc": "QZNWT2425131",
+                "name": "Serene",
+                "playParams": {
+                  "id": "1750798721",
+                  "kind": "song"
+                },
+                "previews": [
+                  {
+                    "url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/ad/44/dd/ad44dd48-3bd9-4614-70a0-8df8ea5742ec/mzaf_7446266052564871103.plus.aac.ep.m4a"
+                  }
+                ],
+                "releaseDate": "2024-07-03",
+                "trackNumber": 3,
+                "url": "https://music.apple.com/us/album/serene/1750798717?i=1750798721"
+              },
+              "meta": {
+                "contentVersion": {
+                  "MZ_INDEXER": 1760645707481,
+                  "RTCI": 1745589169973
+                }
+              }
+            },
+            {
+              "id": "1750798722",
+              "type": "songs",
+              "href": "/v1/catalog/us/songs/1750798722?l=en-US",
+              "attributes": {
+                "albumName": "Dream Shift",
+                "artistName": "Opal In Sky",
+                "artwork": {
+                  "bgColor": "111214",
+                  "hasP3": false,
+                  "height": 3000,
+                  "textColor1": "f3b6c7",
+                  "textColor2": "fb347c",
+                  "textColor3": "c695a3",
+                  "textColor4": "cc2d67",
+                  "url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/25/97/ea/2597eabe-16f5-f036-8989-2b9f0d1fe3d4/artwork.jpg/{w}x{h}bb.jpg",
+                  "width": 3000
+                },
+                "audioLocale": "en-US",
+                "audioTraits": [
+                  "lossless",
+                  "lossy-stereo"
+                ],
+                "composerName": "Dylon Joseph Opalinsky",
+                "contentRating": "explicit",
+                "discNumber": 1,
+                "durationInMillis": 264095,
+                "genreNames": [
+                  "Metal",
+                  "Music",
+                  "Rock",
+                  "Alternative"
+                ],
+                "hasLyrics": true,
+                "hasTimeSyncedLyrics": true,
+                "isAppleDigitalMaster": false,
+                "isMasteredForItunes": false,
+                "isVocalAttenuationAllowed": true,
+                "isrc": "QZNWT2425132",
+                "name": "Those Who Wait",
+                "playParams": {
+                  "id": "1750798722",
+                  "kind": "song"
+                },
+                "previews": [
+                  {
+                    "url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/5f/41/ab/5f41ab1c-6ef6-2c4e-4523-1ed1315cc663/mzaf_3778378908471151186.plus.aac.ep.m4a"
+                  }
+                ],
+                "releaseDate": "2024-07-03",
+                "trackNumber": 4,
+                "url": "https://music.apple.com/us/album/those-who-wait/1750798717?i=1750798722"
+              },
+              "meta": {
+                "contentVersion": {
+                  "MZ_INDEXER": 1760805147639,
+                  "RTCI": 1745589169994
+                }
+              }
+            },
+            {
+              "id": "1750798723",
+              "type": "songs",
+              "href": "/v1/catalog/us/songs/1750798723?l=en-US",
+              "attributes": {
+                "albumName": "Dream Shift",
+                "artistName": "Opal In Sky",
+                "artwork": {
+                  "bgColor": "111214",
+                  "hasP3": false,
+                  "height": 3000,
+                  "textColor1": "f3b6c7",
+                  "textColor2": "fb347c",
+                  "textColor3": "c695a3",
+                  "textColor4": "cc2d67",
+                  "url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/25/97/ea/2597eabe-16f5-f036-8989-2b9f0d1fe3d4/artwork.jpg/{w}x{h}bb.jpg",
+                  "width": 3000
+                },
+                "audioLocale": "en-US",
+                "audioTraits": [
+                  "lossless",
+                  "lossy-stereo"
+                ],
+                "composerName": "Dylon Joseph Opalinsky",
+                "contentRating": "explicit",
+                "discNumber": 1,
+                "durationInMillis": 203987,
+                "genreNames": [
+                  "Metal",
+                  "Music",
+                  "Rock",
+                  "Alternative"
+                ],
+                "hasLyrics": true,
+                "hasTimeSyncedLyrics": true,
+                "isAppleDigitalMaster": false,
+                "isMasteredForItunes": false,
+                "isVocalAttenuationAllowed": true,
+                "isrc": "QZNWT2425133",
+                "name": "Beautiful Beasts",
+                "playParams": {
+                  "id": "1750798723",
+                  "kind": "song"
+                },
+                "previews": [
+                  {
+                    "url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/4c/ac/08/4cac08e3-f84f-199b-dc91-dea873f83ebf/mzaf_10433263669708977507.plus.aac.ep.m4a"
+                  }
+                ],
+                "releaseDate": "2024-07-03",
+                "trackNumber": 5,
+                "url": "https://music.apple.com/us/album/beautiful-beasts/1750798717?i=1750798723"
+              },
+              "meta": {
+                "contentVersion": {
+                  "MZ_INDEXER": 1760645737770,
+                  "RTCI": 1754528608135
+                }
+              }
+            },
+            {
+              "id": "1750798724",
+              "type": "songs",
+              "href": "/v1/catalog/us/songs/1750798724?l=en-US",
+              "attributes": {
+                "albumName": "Dream Shift",
+                "artistName": "Opal In Sky",
+                "artwork": {
+                  "bgColor": "111214",
+                  "hasP3": false,
+                  "height": 3000,
+                  "textColor1": "f3b6c7",
+                  "textColor2": "fb347c",
+                  "textColor3": "c695a3",
+                  "textColor4": "cc2d67",
+                  "url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/25/97/ea/2597eabe-16f5-f036-8989-2b9f0d1fe3d4/artwork.jpg/{w}x{h}bb.jpg",
+                  "width": 3000
+                },
+                "audioLocale": "en-US",
+                "audioTraits": [
+                  "lossless",
+                  "lossy-stereo"
+                ],
+                "composerName": "Dylon Joseph Opalinsky",
+                "contentRating": "explicit",
+                "discNumber": 1,
+                "durationInMillis": 261357,
+                "genreNames": [
+                  "Metal",
+                  "Music",
+                  "Rock",
+                  "Alternative"
+                ],
+                "hasLyrics": true,
+                "hasTimeSyncedLyrics": true,
+                "isAppleDigitalMaster": false,
+                "isMasteredForItunes": false,
+                "isVocalAttenuationAllowed": true,
+                "isrc": "QZNWT2425134",
+                "name": "Hand of a Guide",
+                "playParams": {
+                  "id": "1750798724",
+                  "kind": "song"
+                },
+                "previews": [
+                  {
+                    "url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/73/39/34/73393494-cf04-418b-4f17-8608872d8bbb/mzaf_2612938056035741582.plus.aac.ep.m4a"
+                  }
+                ],
+                "releaseDate": "2024-07-03",
+                "trackNumber": 6,
+                "url": "https://music.apple.com/us/album/hand-of-a-guide/1750798717?i=1750798724"
+              },
+              "meta": {
+                "contentVersion": {
+                  "MZ_INDEXER": 1760645710676,
+                  "RTCI": 1745589170354
+                }
+              }
+            },
+            {
+              "id": "1750798725",
+              "type": "songs",
+              "href": "/v1/catalog/us/songs/1750798725?l=en-US",
+              "attributes": {
+                "albumName": "Dream Shift",
+                "artistName": "Opal In Sky",
+                "artwork": {
+                  "bgColor": "111214",
+                  "hasP3": false,
+                  "height": 3000,
+                  "textColor1": "f3b6c7",
+                  "textColor2": "fb347c",
+                  "textColor3": "c695a3",
+                  "textColor4": "cc2d67",
+                  "url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/25/97/ea/2597eabe-16f5-f036-8989-2b9f0d1fe3d4/artwork.jpg/{w}x{h}bb.jpg",
+                  "width": 3000
+                },
+                "audioLocale": "en-US",
+                "audioTraits": [
+                  "lossless",
+                  "lossy-stereo"
+                ],
+                "composerName": "Dylon Joseph Opalinsky",
+                "contentRating": "explicit",
+                "discNumber": 1,
+                "durationInMillis": 134383,
+                "genreNames": [
+                  "Metal",
+                  "Music",
+                  "Rock",
+                  "Alternative"
+                ],
+                "hasLyrics": true,
+                "hasTimeSyncedLyrics": true,
+                "isAppleDigitalMaster": false,
+                "isMasteredForItunes": false,
+                "isVocalAttenuationAllowed": true,
+                "isrc": "QZNWT2425135",
+                "name": "Introspect",
+                "playParams": {
+                  "id": "1750798725",
+                  "kind": "song"
+                },
+                "previews": [
+                  {
+                    "url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/29/72/ec/2972ec16-b149-1254-1234-5c241222e2c8/mzaf_254726465908580563.plus.aac.p.m4a"
+                  }
+                ],
+                "releaseDate": "2024-07-03",
+                "trackNumber": 7,
+                "url": "https://music.apple.com/us/album/introspect/1750798717?i=1750798725"
+              },
+              "meta": {
+                "contentVersion": {
+                  "MZ_INDEXER": 1760645724269,
+                  "RTCI": 1760520142488
+                }
+              }
+            },
+            {
+              "id": "1750798726",
+              "type": "songs",
+              "href": "/v1/catalog/us/songs/1750798726?l=en-US",
+              "attributes": {
+                "albumName": "Dream Shift",
+                "artistName": "Opal In Sky",
+                "artwork": {
+                  "bgColor": "111214",
+                  "hasP3": false,
+                  "height": 3000,
+                  "textColor1": "f3b6c7",
+                  "textColor2": "fb347c",
+                  "textColor3": "c695a3",
+                  "textColor4": "cc2d67",
+                  "url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/25/97/ea/2597eabe-16f5-f036-8989-2b9f0d1fe3d4/artwork.jpg/{w}x{h}bb.jpg",
+                  "width": 3000
+                },
+                "audioLocale": "en-US",
+                "audioTraits": [
+                  "lossless",
+                  "lossy-stereo"
+                ],
+                "composerName": "Dylon Joseph Opalinsky",
+                "contentRating": "explicit",
+                "discNumber": 1,
+                "durationInMillis": 195155,
+                "genreNames": [
+                  "Metal",
+                  "Music",
+                  "Rock",
+                  "Alternative"
+                ],
+                "hasLyrics": true,
+                "hasTimeSyncedLyrics": true,
+                "isAppleDigitalMaster": false,
+                "isMasteredForItunes": false,
+                "isVocalAttenuationAllowed": true,
+                "isrc": "QZNWT2425136",
+                "name": "Dream Shift",
+                "playParams": {
+                  "id": "1750798726",
+                  "kind": "song"
+                },
+                "previews": [
+                  {
+                    "url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/6a/53/d1/6a53d1ff-0e1f-4c06-25f8-a7e2ff68a80f/mzaf_8071044499522105324.plus.aac.ep.m4a"
+                  }
+                ],
+                "releaseDate": "2024-07-03",
+                "trackNumber": 8,
+                "url": "https://music.apple.com/us/album/dream-shift/1750798717?i=1750798726"
+              },
+              "meta": {
+                "contentVersion": {
+                  "MZ_INDEXER": 1760660920451,
+                  "RTCI": 1754804546548
+                }
+              }
+            }
+          ]
+        }
+      },
+      "meta": {
+        "contentVersion": {
+          "MZ_INDEXER": 1760646175305,
+          "RTCI": 0
+        }
+      }
+    }
+  ]
+}

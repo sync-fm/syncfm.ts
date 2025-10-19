@@ -1,0 +1,65 @@
+{
+  "id": "1632833801",
+  "type": "artists",
+  "href": "/v1/catalog/us/artists/1632833801?l=en-US",
+  "attributes": {
+    "artwork": {
+      "bgColor": "080604",
+      "hasP3": false,
+      "height": 2111,
+      "textColor1": "edbd9e",
+      "textColor2": "e09c7b",
+      "textColor3": "bf987f",
+      "textColor4": "b57e63",
+      "url": "https://is1-ssl.mzstatic.com/image/thumb/AMCArtistImages221/v4/95/eb/3f/95eb3f94-7e0e-5643-0b83-b3d112b3dd61/file_cropped.png/{w}x{h}bb.jpg",
+      "width": 2111
+    },
+    "genreNames": [
+      "Metal"
+    ],
+    "name": "Opal In Sky",
+    "url": "https://music.apple.com/us/artist/opal-in-sky/1632833801"
+  },
+  "relationships": {
+    "albums": {
+      "href": "/v1/catalog/us/artists/1632833801/albums?l=en-US",
+      "data": [
+        {
+          "id": "1701355280",
+          "type": "albums",
+          "href": "/v1/catalog/us/albums/1701355280?l=en-US"
+        },
+        {
+          "id": "1685355510",
+          "type": "albums",
+          "href": "/v1/catalog/us/albums/1685355510?l=en-US"
+        },
+        {
+          "id": "1750798717",
+          "type": "albums",
+          "href": "/v1/catalog/us/albums/1750798717?l=en-US"
+        },
+        {
+          "id": "1668286084",
+          "type": "albums",
+          "href": "/v1/catalog/us/albums/1668286084?l=en-US"
+        },
+        {
+          "id": "1644555159",
+          "type": "albums",
+          "href": "/v1/catalog/us/albums/1644555159?l=en-US"
+        },
+        {
+          "id": "1652828844",
+          "type": "albums",
+          "href": "/v1/catalog/us/albums/1652828844?l=en-US"
+        },
+        {
+          "id": "1633319619",
+          "type": "albums",
+          "href": "/v1/catalog/us/albums/1633319619?l=en-US"
+        }
+      ]
+    }
+  }
+}
