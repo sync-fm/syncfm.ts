@@ -1,7 +1,5 @@
 # SyncFM.ts
-
-> Very early WIP. Expect nothing to work.
-> this also includes an early version of SyncFM Redirect (Which is a simple webserver to redirect music between services)
+> 1.2.0 Contains a breaking change! - Functions used to get input type from URL are now returning promises.
 
 ### Why?
 > i was tired of having to open different music services when i sent & recieved songs & stuff from friends that used other services than me

@@ -1,6 +1,6 @@
 {
   "name": "syncfm.ts",
-  "version": "1.1.0",
+  "version": "1.3.0",
   "description": "TypeScript API for sync.fm",
   "main": "dist/index.js",
   "type": "module",
@@ -11,7 +11,7 @@
   "scripts": {
     "start": "node dist/server.js",
     "build": "rm -rf ./dist && tsc --build --verbose --diagnostics && tsc-alias",
-    "test": "vitest run",
+    "test": "bunx @dotenvx/dotenvx run -f .env -- vitest run",
     "lint": "eslint . --ext .ts",
     "dev": "bunx @dotenvx/dotenvx run -f .env -- bun --watch src/server.ts",
     "prepack": "bun run paths:real && bun run build",
@@ -46,25 +46,27 @@
   },
   "homepage": "https://github.com/sync-fm/syncfm.ts#readme",
   "dependencies": {
-    "@eslint/js": "^9.26.0",
+    "@eslint/js": "^9.38.0",
     "@spotify/web-api-ts-sdk": "^1.2.0",
-    "@supabase/supabase-js": "^2.56.0",
-    "@types/express": "^5.0.2",
-    "@types/node": "^22.15.18",
-    "axios": "^1.11.0",
-    "eslint": "^9.26.0",
+    "@supabase/supabase-js": "^2.76.1",
+    "@syncfm/applemusic-api": "^0.0.4",
+    "@syncfm/ytmusic-api": "^5.3.2",
+    "@types/express": "^5.0.5",
+    "@types/node": "^22.18.12",
+    "axios": "^1.13.0",
+    "eslint": "^9.38.0",
     "express": "^5.1.0",
     "syncfm.ts": "^1.1.0",
     "tsc-alias": "^1.8.16",
-    "typescript": "^5.8.3",
-    "typescript-eslint": "^8.32.1"
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.46.2"
   },
   "devDependencies": {
     "@types/supertest": "^6.0.3",
     "@vitest/coverage-v8": "^3.2.4",
-    "globals": "^16.3.0",
+    "globals": "^16.4.0",
     "supertest": "^7.1.4",
-    "ts-proto": "^2.7.7",
+    "ts-proto": "^2.8.1",
     "vitest": "^3.2.4",
     "vitest-mock-extended": "^3.1.0"
   }

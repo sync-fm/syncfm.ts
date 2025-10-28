@@ -53,17 +53,21 @@ export class SyncFM {
         return null;
     }
 
-    getInputTypeFromUrl = (url: string): MusicEntityType | null => {
+    getInputTypeFromUrl = async (url: string): Promise<MusicEntityType> => {
         const serviceName = this.getStreamingServiceFromUrl(url);
         if (!serviceName) {
             throw new Error("Could not determine service from URL");
         }
         const service = this.getService(serviceName);
-        return service.getTypeFromUrl(url);
+        const type = await service.getTypeFromUrl(url);
+        if (!type) {
+            throw new Error("Could not determine input type from URL");
+        }
+        return type;
     }
 
     // eslint-disable-next-line no-unused-vars
-    private async getInputInfo<T>(input: string, getter: (params: { service: StreamingService, id: string }) => Promise<T>): Promise<T> {
+    private async _getInputInfo<T>(input: string, getter: (params: { service: StreamingService, id: string }) => Promise<T>): Promise<T> {
         const serviceName = this.getStreamingServiceFromUrl(input);
         if (!serviceName) throw new Error("Unsupported streaming service URL");
         const service = this.getService(serviceName);
@@ -73,21 +77,35 @@ export class SyncFM {
     }
 
     getInputSongInfo = async (input: string): Promise<SyncFMSong> => {
-        return this.getInputInfo(input, ({ service, id }) => service.getSongById(id));
+        return this._getInputInfo(input, ({ service, id }) => service.getSongById(id));
     }
 
     getInputArtistInfo = async (input: string): Promise<SyncFMArtist> => {
-        return this.getInputInfo(input, ({ service, id }) => service.getArtistById(id));
+        return this._getInputInfo(input, ({ service, id }) => service.getArtistById(id));
     }
 
     getInputAlbumInfo = async (input: string): Promise<SyncFMAlbum> => {
-        return this.getInputInfo(input, ({ service, id }) => service.getAlbumById(id));
+        return this._getInputInfo(input, ({ service, id }) => service.getAlbumById(id));
+    }
+
+    getInputInfo = async <T = SyncFMAlbum | SyncFMArtist | SyncFMSong>(input: string, type: MusicEntityType): Promise<T> => {
+        switch (type) {
+            case 'song':
+                return this.getInputSongInfo(input) as T
+            case 'artist':
+                return this.getInputArtistInfo(input) as T
+            case 'album':
+                return this.getInputAlbumInfo(input) as T
+            default:
+                throw new Error(`Unsupported input type: ${type}`);
+        }
     }
 
     convertSong = async (songInfo: SyncFMSong, desiredService: ServiceName): Promise<SyncFMSong> => {
         try {
             return this.unifiedConvert(songInfo, desiredService, 'song');
         } catch (error) {
+            console.error(error);
             throw new Error(`Could not convert song to desired service: ${desiredService}`);
         }
     }
@@ -96,6 +114,7 @@ export class SyncFM {
         try {
             return this.unifiedConvert(artistInfo, desiredService, 'artist');
         } catch (error) {
+            console.error(error);
             throw new Error(`Could not convert artist to desired service: ${desiredService}`);
         }
     }
@@ -104,6 +123,7 @@ export class SyncFM {
         try {
             return this.unifiedConvert(albumInfo, desiredService, 'album');
         } catch (error) {
+            console.error(error);
             throw new Error(`Could not convert album to desired service: ${desiredService}`);
         }
     }
@@ -224,7 +244,7 @@ export class SyncFM {
         return { data: null, foundInDb: false };
     }
 
-    private async unifiedConvert<T extends SyncFMSong | SyncFMArtist | SyncFMAlbum>(inputInfo: T, desiredService: ServiceName, inputType: MusicEntityType): Promise<T> {
+    async unifiedConvert<T extends SyncFMSong | SyncFMArtist | SyncFMAlbum>(inputInfo: T, desiredService: ServiceName, inputType: MusicEntityType): Promise<T> {
         const dbLookupRes = await this.checkDatabaseForExistingConversion(inputInfo, desiredService, inputType);
 
         if (dbLookupRes.foundInDb && dbLookupRes.data) {
@@ -241,7 +261,7 @@ export class SyncFM {
         const conversionPromises = SUPPORTED_SERVICES.map(serviceName => this.invokeServiceMethod(serviceName, inputInfo, inputType));
         const results = await Promise.all(conversionPromises);
         let convertedItem: T | null = null;
-        let desiredOutput: T | null = null;
+
         for (const result of results) {
             if (result.error) {
                 console.warn(result.error);
@@ -282,7 +302,7 @@ export class SyncFM {
             return convertedItem;
         }
 
-        throw new Error(`Could not convert ${inputType} to desired service: ${desiredService}`);
+        throw new Error(`Could not convert ${inputType} to desired service: ${desiredService} \n Final converted item: ${JSON.stringify(convertedItem)}`);
     }
 
     private createURL(item: { externalIds: any }, serviceName: ServiceName, type: MusicEntityType): string {
