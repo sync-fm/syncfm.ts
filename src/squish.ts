@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import { SyncFMAlbum, SyncFMArtist, SyncFMSong } from './types/syncfm';
 
 // Define the strategies for merging a field

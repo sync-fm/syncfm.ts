@@ -1,7 +1,7 @@
 import { SpotifyApi, Track, Album } from '@spotify/web-api-ts-sdk';
 import { SyncFMSong, SyncFMExternalIdMap, SyncFMArtist, SyncFMAlbum } from '../../types/syncfm';
 import { generateSyncArtistId, generateSyncId, parseDurationWithFudge } from '../../utils';
-import { StreamingService, MusicEntityType } from '../StreamingService'; // Adjust path as needed
+import { StreamingService, MusicEntityType } from '../StreamingService';
 
 export class SpotifyService extends StreamingService {
     private readonly clientId: string;
@@ -64,7 +64,6 @@ export class SpotifyService extends StreamingService {
 
     async getAlbumById(id: string): Promise<SyncFMAlbum> {
         const spotifyAlbum: Album = await this.sdk.albums.get(id);
-
         const externalIds: SyncFMExternalIdMap = { Spotify: spotifyAlbum.id };
         const albumArtists = spotifyAlbum.artists.map(a => a.name);
 
@@ -134,7 +133,7 @@ export class SpotifyService extends StreamingService {
     }
 
     async getAlbumBySearchQuery(query: string): Promise<SyncFMAlbum> {
-        const searchResult = await this.sdk.search(query, ["album"], undefined, 1);
+        const searchResult = await this.sdk.search(query, ["album"], undefined, 3);
         if (searchResult.albums.items.length > 0) {
             const spotifyAlbum = searchResult.albums.items[0];
             if (spotifyAlbum && spotifyAlbum.id) {
@@ -157,7 +156,7 @@ export class SpotifyService extends StreamingService {
         }
     }
 
-    getTypeFromUrl(url: string): MusicEntityType | null {
+    async getTypeFromUrl(url: string): Promise<MusicEntityType | null> {
         try {
             const path = new URL(url).pathname;
             const parts = path.split('/');

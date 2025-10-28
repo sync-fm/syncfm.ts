@@ -26,6 +26,6 @@ export abstract class StreamingService {
 	abstract getIdFromUrl(url: string): string | null;
 	// We should probably strip tracking info from URLs in each service implementation.
 
-	abstract getTypeFromUrl(url: string): MusicEntityType | null;
+	abstract getTypeFromUrl(url: string): Promise<MusicEntityType | null>;
 	abstract createUrl(id: string, type: MusicEntityType): string;
 }

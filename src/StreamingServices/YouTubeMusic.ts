@@ -1,11 +1,11 @@
 import YTMusic from "@syncfm/ytmusic-api";
 import { SyncFMSong, SyncFMExternalIdMap, SyncFMArtist, SyncFMAlbum } from '../types/syncfm';
-import { generateSyncArtistId, generateSyncId } from '../utils';
+import { generateSyncArtistId, generateSyncId, parseDurationWithFudge } from '../utils';
 import axios from "axios";
 import { StreamingService, MusicEntityType } from './StreamingService';
 
 export class YouTubeMusicService extends StreamingService {
-    private ytmusic: YTMusic;
+    private ytmusic!: YTMusic;
 
     async getInstance(): Promise<YTMusic> {
         if (!this.ytmusic) {
@@ -20,15 +20,22 @@ export class YouTubeMusicService extends StreamingService {
         const ytMusicSong = await ytmusic.getSong(id);
 
         const externalIds: SyncFMExternalIdMap = { YouTube: id };
+        const normalizedDuration = ytMusicSong.duration
+            ? parseDurationWithFudge(ytMusicSong.duration * 1000)
+            : 0;
 
         const syncFmSong: SyncFMSong = {
-            syncId: generateSyncId(ytMusicSong.name, ytMusicSong.artist ? [ytMusicSong.artist.name] : [], ytMusicSong.duration),
+            syncId: generateSyncId(
+                ytMusicSong.name,
+                ytMusicSong.artist ? [ytMusicSong.artist.name] : [],
+                normalizedDuration,
+            ),
             title: ytMusicSong.name,
             description: undefined,
             artists: ytMusicSong.artist ? [ytMusicSong.artist.name] : [],
             album: undefined,
             releaseDate: undefined,
-            duration: ytMusicSong.duration,
+            duration: ytMusicSong.duration ? normalizedDuration : undefined,
             imageUrl: ytMusicSong.thumbnails[0]?.url,
             externalIds: externalIds,
             explicit: undefined,
@@ -62,7 +69,6 @@ export class YouTubeMusicService extends StreamingService {
         } else {
             ytMusicAlbum = await ytmusic.getAlbum(id);
         }
-
         let normalizedArtists: string[] = [];
         if (ytMusicAlbum.artist) {
             const splitArtists = ytMusicAlbum.artist.name.split(/[,&]\s*|\s* and \s*/i).map(a => a.trim()).filter(a => a.length > 0);
@@ -74,19 +80,23 @@ export class YouTubeMusicService extends StreamingService {
         let parsedTracks: SyncFMSong[] = [];
         ytMusicAlbum.songs.forEach(song => {
             totalTracks += 1;
-            if (song.duration) {
-                totalDuration += song.duration;
+            const normalizedDuration = song.duration
+                ? parseDurationWithFudge(song.duration * 1000)
+                : 0;
+            if (normalizedDuration) {
+                totalDuration += normalizedDuration;
             }
             const externalIds: SyncFMExternalIdMap = { YouTube: song.videoId };
+            const trackArtists = song.artist ? [song.artist.name] : [];
 
             const syncFmSong: SyncFMSong = {
-                syncId: generateSyncId(song.name, song.artist ? [song.artist.name] : [], song.duration),
+                syncId: generateSyncId(song.name, trackArtists, normalizedDuration),
                 title: song.name,
                 description: undefined,
-                artists: song.artist ? [song.artist.name] : [],
+                artists: trackArtists,
                 album: song.album?.name,
                 releaseDate: undefined,
-                duration: song.duration,
+                duration: song.duration ? normalizedDuration : undefined,
                 imageUrl: song.thumbnails && song.thumbnails.length > 0 ? song.thumbnails[0].url : undefined,
                 externalIds: externalIds,
                 explicit: undefined,
@@ -113,15 +123,19 @@ export class YouTubeMusicService extends StreamingService {
 
     private internal_YTMSongToSyncFMSong(ytMusicSong: YouTubeMusicSong): SyncFMSong {
         const externalIds: SyncFMExternalIdMap = { YouTube: ytMusicSong.videoId };
+        const normalizedDuration = ytMusicSong.duration
+            ? parseDurationWithFudge(ytMusicSong.duration * 1000)
+            : 0;
+        const trackArtists = ytMusicSong.artist ? [ytMusicSong.artist.name] : [];
 
         const syncFmSong: SyncFMSong = {
-            syncId: generateSyncId(ytMusicSong.name, ytMusicSong.artist ? [ytMusicSong.artist.name] : [], ytMusicSong.duration),
+            syncId: generateSyncId(ytMusicSong.name, trackArtists, normalizedDuration),
             title: ytMusicSong.name,
             description: undefined,
-            artists: ytMusicSong.artist ? [ytMusicSong.artist.name] : [],
+            artists: trackArtists,
             album: undefined,
             releaseDate: undefined,
-            duration: ytMusicSong.duration,
+            duration: ytMusicSong.duration ? normalizedDuration : undefined,
             imageUrl: ytMusicSong.thumbnails[0]?.url,
             externalIds: externalIds,
             explicit: undefined,
@@ -141,7 +155,7 @@ export class YouTubeMusicService extends StreamingService {
         if (searchResults.length === 0) {
             throw new Error("No results found");
         }
-        const songResult = searchResults[0];
+        const songResult = searchResults[0] as unknown as YouTubeMusicSong;
         return this.internal_YTMSongToSyncFMSong(songResult);
         // Normally the code below would work just fine, but we sometimes get a weird edge-case where the videoId isnt valid for getSong,
         // So for now we just convert the search result directly
@@ -177,10 +191,10 @@ export class YouTubeMusicService extends StreamingService {
 
             const pathname = parsedUrl.pathname;
             if (pathname.startsWith('/browse/')) {
-                return pathname.split('/').pop();
+                return pathname.split('/').pop()!;
             }
             if (pathname.startsWith('/channel/')) {
-                return pathname.split('/').pop();
+                return pathname.split('/').pop()!;
             }
 
             return null;
@@ -190,7 +204,7 @@ export class YouTubeMusicService extends StreamingService {
         }
     }
 
-    getTypeFromUrl(url: string): MusicEntityType | null {
+    async getTypeFromUrl(url: string): Promise<MusicEntityType | null> {
         try {
             const parsedUrl = new URL(url);
             const pathname = parsedUrl.pathname;

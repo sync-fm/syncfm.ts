@@ -1,28 +1,38 @@
-import axios from "axios";
 import type {
 	SyncFMSong,
 	SyncFMExternalIdMap,
 	SyncFMArtist,
 	SyncFMAlbum,
 } from "../types/syncfm";
-import { generateSyncId, generateSyncArtistId, parseAMAstring } from "../utils";
+import {
+	generateSyncId,
+	generateSyncArtistId,
+	parseAMAstring,
+	parseDurationWithFudge,
+} from "../utils";
 import { StreamingService, type MusicEntityType } from "./StreamingService";
 import {
 	AppleMusic,
 	AuthType,
 	LogLevel,
 	Region,
-  ArtistsEndpointTypes,
-  SongsEndpointTypes,
-  AlbumsEndpointTypes
-} from "../../../applemusic-api";
-import fs from "fs";
+	ArtistsEndpointTypes,
+	AlbumsEndpointTypes,
+	ResourceType,
+} from "@syncfm/applemusic-api";
+
+interface AlbumCacheEntry {
+	data: AlbumsEndpointTypes.AlbumResource;
+	expiresAt: number;
+}
+
 export class AppleMusicService extends StreamingService {
-	private client: AppleMusic;
+	private client!: AppleMusic;
+	private albumCache: Map<string, AlbumCacheEntry> = new Map();
+	private readonly CACHE_TTL_MS = 10000; // 10 seconds
 
 	async getInstance(): Promise<AppleMusic> {
 		if (this.client) {
-			console.log("AppleMusicService.getInstance returning existing client");
 			return this.client;
 		}
 		const amc = new AppleMusic({
@@ -37,24 +47,85 @@ export class AppleMusicService extends StreamingService {
 		return this.client;
 	}
 
+	private getCachedAlbum(id: string): AlbumsEndpointTypes.AlbumResource | null {
+		const cached = this.albumCache.get(id);
+		if (cached && cached.expiresAt > Date.now()) {
+			return cached.data;
+		}
+		// Clean up expired entry
+		if (cached) {
+			this.albumCache.delete(id);
+		}
+		return null;
+	}
+
+	private setCachedAlbum(id: string, album: AlbumsEndpointTypes.AlbumResource): void {
+		this.albumCache.set(id, {
+			data: album,
+			expiresAt: Date.now() + this.CACHE_TTL_MS,
+		});
+	}
+
 	async getSongById(id: string): Promise<SyncFMSong> {
 		const client = await this.getInstance();
-		const songRes = await client.Songs.get({
+		let songRes = await client.Songs.get({
 			id: id,
 		});
 		if (songRes.data.length === 0) {
-			throw new Error(`No song found with id: ${id}`);
+			try {
+				// Check cache first
+				let albumData = this.getCachedAlbum(id);
+				if (!albumData) {
+					const albumRes = await client.Albums.get({
+						id: id,
+						include: [AlbumsEndpointTypes.IncludeOption.Tracks],
+					});
+					if (albumRes.data.length > 0) {
+						albumData = albumRes.data[0];
+						this.setCachedAlbum(id, albumData);
+					}
+				}
+				if (
+					albumData &&
+					albumData.attributes!.isSingle === true &&
+					albumData.relationships!.tracks!.data!.length > 0
+				) {
+					const firstTrackId =
+						albumData?.relationships?.tracks?.data?.[0]?.id;
+
+					if (!firstTrackId) {
+						// handle: no tracks or missing id
+						throw new Error("No first track id on album");
+					}
+
+					songRes = await client.Songs.get({ id: firstTrackId });
+				}
+			} catch {
+				throw new Error(`No song found with id: ${id}`);
+			}
 		}
 		const song = songRes.data[0];
+		if (!song || !song.attributes || !song.attributes.name || !song.attributes.artistName) {
+			throw new Error(`No song found with id: ${id}`);
+		}
+		if (!song.attributes.artwork || !song.attributes.artwork.url) {
+			throw new Error(`Song ${id} missing artwork`);
+		}
+		if (!song.attributes.releaseDate) {
+			throw new Error(`Song ${id} missing release date`);
+		}
 		const artists = Array.from(parseAMAstring(song.attributes.artistName)).map(
 			(a) => a.trim(),
 		);
 		const externalIds: SyncFMExternalIdMap = { AppleMusic: id };
+		const normalizedDuration = song.attributes.durationInMillis
+			? parseDurationWithFudge(song.attributes.durationInMillis)
+			: 0;
 		const syncFmSong: SyncFMSong = {
 			syncId: generateSyncId(
 				song.attributes.name,
 				artists,
-				song.attributes.durationInMillis,
+				normalizedDuration,
 			),
 			title: song.attributes.name,
 			description: `${song.attributes.name} by ${artists[0]} ${artists.length - 1 > 0 ? `& ${artists.length - 1} more` : ""} ${song.attributes.albumName ? `from the album ${song.attributes.albumName}` : ""}`,
@@ -65,7 +136,7 @@ export class AppleMusicService extends StreamingService {
 			album: song.attributes.albumName || undefined,
 			releaseDate: new Date(song.attributes.releaseDate),
 			duration: song.attributes.durationInMillis
-				? Math.round(song.attributes.durationInMillis / 1000)
+				? normalizedDuration
 				: undefined,
 			imageUrl: song.attributes.artwork.url.replace("{w}x{h}", "500x500"),
 			externalIds: externalIds,
@@ -74,18 +145,43 @@ export class AppleMusicService extends StreamingService {
 		return syncFmSong;
 	}
 
+	async isAlbumSingle(id: string): Promise<boolean> {
+		let albumData = this.getCachedAlbum(id);
+		if (!albumData) {
+			const client = await this.getInstance();
+			const albumRes = await client.Albums.get({
+				id: id,
+			});
+			if (albumRes.data.length === 0) {
+				throw new Error(`No album found with id: ${id}`);
+			}
+			albumData = albumRes.data[0];
+			this.setCachedAlbum(id, albumData);
+		}
+		if (!albumData.attributes) {
+			throw new Error(`Album ${id} missing attributes`);
+		}
+		return albumData.attributes.isSingle === true;
+	}
+
 	async getArtistById(id: string): Promise<SyncFMArtist> {
 		const client = await this.getInstance();
 		const artistRes = await client.Artists.get({ id: id });
-    const artistTopSongsRes = await client.Artists.getView({
-      id: id,
-      view: ArtistsEndpointTypes.ArtistViewName.TopSongs,
-      limit: 5,
-    })
+		const artistTopSongsRes = await client.Artists.getView({
+			id: id,
+			view: ArtistsEndpointTypes.ArtistViewName.TopSongs,
+			limit: 5,
+		});
 		if (artistRes.data.length === 0) {
 			throw new Error(`No artist found with id: ${id}`);
 		}
 		const artistData = artistRes.data[0];
+		if (!artistData.attributes || !artistData.attributes.name) {
+			throw new Error(`Artist ${id} missing required attributes`);
+		}
+		if (!artistData.attributes.artwork || !artistData.attributes.artwork.url) {
+			throw new Error(`Artist ${id} missing artwork`);
+		}
 
 		const artist: SyncFMArtist = {
 			syncId: generateSyncArtistId(artistData.attributes.name),
@@ -95,80 +191,132 @@ export class AppleMusicService extends StreamingService {
 				AppleMusic: id,
 			},
 			genre: artistData.attributes.genreNames || [],
-			tracks: artistTopSongsRes.data.map((song: SongsEndpointTypes.SongResource) => {
-        return {
-          title: song.attributes.name,
-          duration: song.attributes.durationInMillis
-            ? Math.round(song.attributes.durationInMillis / 1000)
-            : undefined,
-          thumbnailUrl: song.attributes.artwork.url.replace("{w}x{h}", "500x500"),
-          uploadDate: song.attributes.releaseDate,
-          contentUrl: song.attributes.previews[0].url,
-          externalIds: {
-            AppleMusic: song.id
-          }
-        }
-        }),
-    }
-    return artist;
+			tracks: artistTopSongsRes.data
+				.filter((item): item is ArtistsEndpointTypes.ArtistSongResource => item.type === "songs")
+				.map(
+					(song) => {
+						if (!song.attributes || !song.attributes.name) {
+							throw new Error(`Song in artist top songs missing required attributes`);
+						}
+						if (!song.attributes.artwork || !song.attributes.artwork.url) {
+							throw new Error(`Song ${song.id} missing artwork`);
+						}
+						if (!song.attributes.previews || !song.attributes.previews[0] || !song.attributes.previews[0].url) {
+							throw new Error(`Song ${song.id} missing preview URL`);
+						}
+						return {
+							title: song.attributes.name,
+							duration: song.attributes.durationInMillis
+								? Math.round(song.attributes.durationInMillis / 1000)
+								: undefined,
+							thumbnailUrl: song.attributes.artwork.url.replace(
+								"{w}x{h}",
+								"500x500",
+							),
+							uploadDate: song.attributes.releaseDate,
+							contentUrl: song.attributes.previews[0].url,
+							externalIds: {
+								AppleMusic: song.id,
+							},
+						};
+					},
+				),
+		};
+		return artist;
 	}
 
 	async getAlbumById(id: string): Promise<SyncFMAlbum> {
-    		const client = await this.getInstance();
-        const albumRes = await client.Albums.get({ id: id, include: [AlbumsEndpointTypes.IncludeOption.Tracks] });
-        if (albumRes.data.length === 0) {
-                throw new Error(`No album found with id: ${id}`);
-        }
-        const albumData = albumRes.data[0];
-        const albumArtists = Array.from(parseAMAstring(albumData.attributes.artistName)).map((a) => a.trim());
+		const client = await this.getInstance();
+		const albumRes = await client.Albums.get({
+			id: id,
+			include: [AlbumsEndpointTypes.IncludeOption.Tracks],
+		});
+		if (albumRes.data.length === 0) {
+			throw new Error(`No album found with id: ${id}`);
+		}
+		const albumData = albumRes.data[0];
+		if (!albumData.attributes || !albumData.attributes.name || !albumData.attributes.artistName) {
+			throw new Error(`Album ${id} missing required attributes`);
+		}
+		if (!albumData.attributes.artwork || !albumData.attributes.artwork.url) {
+			throw new Error(`Album ${id} missing artwork`);
+		}
+		if (!albumData.attributes.releaseDate) {
+			throw new Error(`Album ${id} missing release date`);
+		}
+		if (!albumData.relationships || !albumData.relationships.tracks || !albumData.relationships.tracks.data) {
+			throw new Error(`Album ${id} missing tracks data`);
+		}
+		const albumArtists = Array.from(
+			parseAMAstring(albumData.attributes.artistName),
+		).map((a) => a.trim());
 
-        const songs: SyncFMSong[] = (albumData.relationships.tracks.data || []).map((track: SongsEndpointTypes.SongResource) => {
-            const songDuration = track.attributes.durationInMillis
-                ? Math.round(track.attributes.durationInMillis / 1000)
-                : 0;
-            const externalSongIds: SyncFMExternalIdMap = { AppleMusic: track.id };
+		const songs: SyncFMSong[] = albumData.relationships.tracks.data
+			.filter((item) => item.type === "songs")
+			.map(
+				(track) => {
+					if (!track.attributes || !track.attributes.name || !track.attributes.artistName) {
+						throw new Error(`Track ${track.id} missing required attributes`);
+					}
+					if (!track.attributes.artwork || !track.attributes.artwork.url) {
+						throw new Error(`Track ${track.id} missing artwork`);
+					}
+					if (!track.attributes.releaseDate) {
+						throw new Error(`Track ${track.id} missing release date`);
+					}
+					const songDuration = track.attributes.durationInMillis
+						? parseDurationWithFudge(track.attributes.durationInMillis)
+						: 0;
+					const externalSongIds: SyncFMExternalIdMap = { AppleMusic: track.id };
 
-            return {
-                syncId: generateSyncId(track.attributes.name, albumArtists, songDuration),
-                title: track.attributes.name,
-                artists: Array.from(parseAMAstring(track.attributes.artistName)).map((a) => a.trim()) || [],
-                album: albumData.attributes.name,
-                releaseDate: new Date(track.attributes.releaseDate),
-                duration: songDuration,
-                imageUrl: track.attributes.artwork.url.replace("{w}x{h}", "500x500"),
-                externalIds: externalSongIds,
-                explicit: track.attributes.contentRating === "explicit",
-                description: `${track.attributes.name} by ${track.attributes.artistName}`,
-            };
-        });
+					return {
+						syncId: generateSyncId(
+							track.attributes.name,
+							albumArtists,
+							songDuration,
+						),
+						title: track.attributes.name,
+						artists:
+							Array.from(parseAMAstring(track.attributes.artistName)).map((a) =>
+								a.trim(),
+							) || [],
+						album: albumData.attributes.name,
+						releaseDate: new Date(track.attributes.releaseDate),
+						duration: songDuration,
+						imageUrl: track.attributes.artwork.url.replace("{w}x{h}", "500x500"),
+						externalIds: externalSongIds,
+						explicit: track.attributes.contentRating === "explicit",
+						description: `${track.attributes.name} by ${track.attributes.artistName}`,
+					};
+				},
+			);
 
-        const albumTotalDuration = songs.reduce(
-            (sum, song) => sum + (song.duration || 0),
-            0,
-        );
+		const albumTotalDuration = songs.reduce(
+			(sum, song) => sum + (song.duration || 0),
+			0,
+		);
 
-        const syncFmAlbum: SyncFMAlbum = {
-            syncId: generateSyncId(
-                albumData.attributes.name,
-                albumArtists,
-                albumTotalDuration,
-            ),
-            title: albumData.attributes.name,
-            description: albumData.attributes.editorialNotes?.standard || undefined,
-            artists: albumArtists,
-            releaseDate: albumData.attributes.releaseDate,
-            imageUrl: albumData.attributes.artwork.url.replace("{w}x{h}", "500x500"),
-            externalIds: { AppleMusic: id },
-            songs: songs,
-            totalTracks: albumData.attributes.trackCount || songs.length,
-            duration: albumTotalDuration > 0 ? albumTotalDuration : undefined,
-            label: albumData.attributes.recordLabel || undefined,
-            genres: albumData.attributes.genreNames || [],
-            explicit: albumData.attributes.contentRating === "explicit",
-        };
+		const syncFmAlbum: SyncFMAlbum = {
+			syncId: generateSyncId(
+				albumData.attributes.name,
+				albumArtists,
+				albumTotalDuration,
+			),
+			title: albumData.attributes.name,
+			description: albumData.attributes.editorialNotes?.standard || undefined,
+			artists: albumArtists,
+			releaseDate: albumData.attributes.releaseDate,
+			imageUrl: albumData.attributes.artwork.url.replace("{w}x{h}", "500x500"),
+			externalIds: { AppleMusic: id },
+			songs: songs,
+			totalTracks: albumData.attributes.trackCount || songs.length,
+			duration: albumTotalDuration > 0 ? albumTotalDuration : undefined,
+			label: albumData.attributes.recordLabel || undefined,
+			genres: albumData.attributes.genreNames || [],
+			explicit: albumData.attributes.contentRating === "explicit",
+		};
 
-        return syncFmAlbum;
-
+		return syncFmAlbum;
 	}
 
 	async getSongBySearchQuery(query: string): Promise<SyncFMSong> {
@@ -191,54 +339,29 @@ export class AppleMusicService extends StreamingService {
 		type: "songs" | "artists" | "albums",
 	): Promise<string> {
 		try {
-			const url =
-				"https://music.apple.com/us/search?term=" + encodeURIComponent(query);
-			const response = await axios.get(url);
-			if (!response.status || response.status !== 200) {
-				throw new Error(`HTTP error! status: ${response.status}`);
+			const client = await this.getInstance();
+			let types: ResourceType;
+			switch (type) {
+				case "songs":
+					types = ResourceType.Songs;
+					break;
+				case "artists":
+					types = ResourceType.Artists;
+					break;
+				case "albums":
+					types = ResourceType.Albums;
+					break;
+				default:
+					types = ResourceType.Songs;
 			}
-			const html = response.data;
-
-			const embeddedSongInfo = html
-				.split(
-					`<script type="application/json" id="serialized-server-data">`,
-				)[1]
-				?.split(`</script>`)[0];
-			const trimmedSongInfo = embeddedSongInfo?.trim();
-			if (trimmedSongInfo) {
-				const jsonData = JSON.parse(trimmedSongInfo);
-				let firstResult = jsonData[0]?.data?.sections[0].items?.find(
-					(item: any) => item.itemKind === type,
-				);
-
-				if (type === "albums") {
-					// When trying to find an album, prefer non-singles at first.
-					firstResult = jsonData[0]?.data?.sections[0].items?.find(
-						(item: any) =>
-							item.itemKind === type &&
-							!item.title.toLowerCase().trim().includes(" - single"),
-					);
-				}
-				if (!firstResult) {
-					firstResult = jsonData[0]?.data?.sections[0].items?.find(
-						(item: any) => item.itemKind === type,
-					);
-				}
-
-				if (!firstResult) {
-					throw new Error(`Could not find ${type} in search result`);
-				}
-
-				const id =
-					firstResult?.contentDescriptor?.identifiers?.storeAdamId ||
-					firstResult?.contentDescriptor?.identifiers?.storeAdamID;
-				if (!id) {
-					throw new Error(`Could not find id in search result for ${type}`);
-				}
-				return id.toString();
-			} else {
-				throw new Error("Could not find song data in HTML");
+			const searchRes = await client.Search.search({
+				term: query,
+				types: [types],
+			});
+			if (searchRes.results[type] && searchRes.results[type].data.length > 0) {
+				return searchRes.results[type].data[0].id;
 			}
+			throw new Error(`No ${type} found for query: ${query}`);
 		} catch (error) {
 			console.error("Error fetching or parsing song data:", error);
 			throw error;
@@ -264,7 +387,7 @@ export class AppleMusicService extends StreamingService {
 		}
 	}
 
-	getTypeFromUrl(url: string): MusicEntityType | null {
+	async getTypeFromUrl(url: string): Promise<MusicEntityType | null> {
 		try {
 			const pathParts = new URL(url).pathname.split("/");
 			const potentialTypes: MusicEntityType[] = [
@@ -276,6 +399,19 @@ export class AppleMusicService extends StreamingService {
 			// Find the first path segment that is a valid music entity type
 			for (const part of pathParts) {
 				if (potentialTypes.includes(part as MusicEntityType)) {
+					if (part === "album") {
+						// Check if it is actually an album - or if its a single (a song)
+						const id = this.getIdFromUrl(url);
+						if (id) {
+							try {
+								const isSingle = await this.isAlbumSingle(id);
+								return isSingle ? "song" : "album" as MusicEntityType;
+							}
+							catch {
+								return "album" as MusicEntityType;
+							}
+						}
+					}
 					return part as MusicEntityType;
 				}
 			}
@@ -287,59 +423,6 @@ export class AppleMusicService extends StreamingService {
 	}
 
 	createUrl(id: string, type: MusicEntityType, country: string = "us"): string {
-		// Note: Creating a song URL from just the song ID is tricky as it requires the album ID and name in the path.
-		// This implementation will require a more advanced lookup if we need to create song URLs from scratch.
-		// For now, we assume this is primarily for album/artist/playlist.
 		return `https://music.apple.com/${country}/${type}/${id}`;
-	}
-
-	private async getSongDataFromUrl(url: string): Promise<AppleMusicSong> {
-		try {
-			const response = await axios.get(url);
-			if (!response.status || response.status !== 200) {
-				throw new Error(`HTTP error! status: ${response.status}`);
-			}
-			const html = response.data;
-
-			const embeddedSongInfo = html
-				.split(`<script id=schema:song type="application/ld+json">`)[1]
-				?.split(`</script>`)[0];
-			const trimmedSongInfo = embeddedSongInfo?.trim();
-			if (trimmedSongInfo) {
-				const jsonData = JSON.parse(trimmedSongInfo);
-				return jsonData;
-			} else {
-				throw new Error("Could not find song data in HTML");
-			}
-		} catch (error) {
-			console.error("Error fetching or parsing song data:", error);
-			throw error;
-		}
-	}
-
-	private parseISO8601Duration(
-		durationString: string | undefined,
-	): number | undefined {
-		if (!durationString) return undefined;
-
-		const match = durationString.match(
-			/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?/,
-		);
-		if (!match) {
-			console.warn(`Could not parse ISO 8601 duration: ${durationString}`);
-			return undefined;
-		}
-
-		const hours = parseInt(match[1] || "0", 10);
-		const minutes = parseInt(match[2] || "0", 10);
-		const seconds = parseFloat(match[3] || "0");
-
-		const totalSeconds = hours * 3600 + minutes * 60 + seconds;
-
-		// AM uses fuckass ISO8601 durations that does NOT line up with the way
-		// we calc durations from other services.
-		// BUT, they seem to always be off by 1 second.
-		// so we add a sec, and look the other way.
-		return totalSeconds + 1;
 	}
 }
