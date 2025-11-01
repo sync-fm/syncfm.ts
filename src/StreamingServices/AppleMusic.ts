@@ -71,7 +71,10 @@ export class AppleMusicService extends StreamingService {
 		let songRes = await client.Songs.get({
 			id: id,
 		});
+		let actualSongId = id;
+
 		if (songRes.data.length === 0) {
+			// The ID might be an album single, try to extract the actual song
 			try {
 				// Check cache first
 				let albumData = this.getCachedAlbum(id);
@@ -87,8 +90,9 @@ export class AppleMusicService extends StreamingService {
 				}
 				if (
 					albumData &&
-					albumData.attributes!.isSingle === true &&
-					albumData.relationships!.tracks!.data!.length > 0
+					albumData.attributes?.isSingle === true &&
+					albumData.relationships?.tracks?.data &&
+					albumData.relationships.tracks.data.length > 0
 				) {
 					const firstTrackId =
 						albumData?.relationships?.tracks?.data?.[0]?.id;
@@ -98,6 +102,8 @@ export class AppleMusicService extends StreamingService {
 						throw new Error("No first track id on album");
 					}
 
+					// Use the actual song ID, not the album ID
+					actualSongId = firstTrackId;
 					songRes = await client.Songs.get({ id: firstTrackId });
 				}
 			} catch {
@@ -117,7 +123,8 @@ export class AppleMusicService extends StreamingService {
 		const artists = Array.from(parseAMAstring(song.attributes.artistName)).map(
 			(a) => a.trim(),
 		);
-		const externalIds: SyncFMExternalIdMap = { AppleMusic: id };
+		// Store the actual song ID, not the album ID if it was a single
+		const externalIds: SyncFMExternalIdMap = { AppleMusic: actualSongId };
 		const normalizedDuration = song.attributes.durationInMillis
 			? parseDurationWithFudge(song.attributes.durationInMillis)
 			: 0;
@@ -196,7 +203,7 @@ export class AppleMusicService extends StreamingService {
 				.map(
 					(song) => {
 						if (!song.attributes || !song.attributes.name) {
-							throw new Error(`Song in artist top songs missing required attributes`);
+							throw new Error("Song in artist top songs missing required attributes");
 						}
 						if (!song.attributes.artwork || !song.attributes.artwork.url) {
 							throw new Error(`Song ${song.id} missing artwork`);
@@ -358,8 +365,46 @@ export class AppleMusicService extends StreamingService {
 				term: query,
 				types: [types],
 			});
+
 			if (searchRes.results[type] && searchRes.results[type].data.length > 0) {
-				return searchRes.results[type].data[0].id;
+				const resultId = searchRes.results[type].data[0].id;
+
+				// Special handling for songs: check if the result is actually an album single
+				// Apple Music search can return album singles in song search results
+				if (type === "songs") {
+					// Check if this ID is actually an album by trying to fetch it as an album
+					try {
+						const isSingle = await this.isAlbumSingle(resultId);
+						if (isSingle) {
+							// It's a single album, extract the actual song ID
+							let albumData = this.getCachedAlbum(resultId);
+							if (!albumData) {
+								const albumRes = await client.Albums.get({
+									id: resultId,
+									include: [AlbumsEndpointTypes.IncludeOption.Tracks],
+								});
+								if (albumRes.data.length > 0) {
+									albumData = albumRes.data[0];
+									this.setCachedAlbum(resultId, albumData);
+								}
+							}
+
+							if (
+								albumData?.relationships?.tracks?.data &&
+								albumData.relationships.tracks.data.length > 0
+							) {
+								const actualSongId = albumData.relationships.tracks.data[0].id;
+								console.log(`Search returned album single ${resultId}, using actual song ID ${actualSongId}`);
+								return actualSongId;
+							}
+						}
+					} catch {
+						// If checking for single fails, it's probably a real song ID
+						// Just continue and return the original ID
+					}
+				}
+
+				return resultId;
 			}
 			throw new Error(`No ${type} found for query: ${query}`);
 		} catch (error) {
@@ -422,7 +467,7 @@ export class AppleMusicService extends StreamingService {
 		}
 	}
 
-	createUrl(id: string, type: MusicEntityType, country: string = "us"): string {
+	createUrl(id: string, type: MusicEntityType, country = "us"): string {
 		return `https://music.apple.com/${country}/${type}/${id}`;
 	}
 }
