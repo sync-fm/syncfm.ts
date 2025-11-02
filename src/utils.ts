@@ -1,15 +1,69 @@
 import { createHash } from "crypto";
-import { SyncFMAlbum, SyncFMSong } from "./types/syncfm";
+import { SyncFMAlbum, SyncFMSong, SyncFMArtist } from "./types/syncfm";
 
-const removeDiacritics = (s: string) =>
-	s.normalize?.("NFKD").replace(/[\u0300-\u036f]/g, "") ?? s;
+function fnv1a(str: string): number {
+	let hash = 0x811c9dc5;
+	for (let i = 0; i < str.length; i++) {
+		hash ^= str.charCodeAt(i);
+		hash = Math.imul(hash, 0x01000193);
+	}
+	return (hash >>> 0); // unsigned 32-bit
+}
+
+const BASE62 = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+function toBase62(num: number): string {
+	let s = "";
+	let n = num;
+	do {
+		s = BASE62[n % 62] + s;
+		n = Math.floor(n / 62);
+	} while (n > 0);
+	return s;
+}
+export const prefixMap: Record<"song" | "artist" | "album", string> = {
+	song: "so",
+	artist: "ar",
+	album: "al",
+} as const;
+export const prefixMapReverse: Record<string, "song" | "artist" | "album"> = {
+	so: "song",
+	ar: "artist",
+	al: "album",
+};
+export function createShortcode(id: string | number, type: "song" | "artist" | "album"): string {
+
+	const prefix = prefixMap[type];
+	const hash = fnv1a(`${type}:${id}`);
+	const short = toBase62(hash).padStart(6, "0"); // ensures fixed length
+	return `${prefix}${short}`;
+}
+
+export const withShortcode = <T extends SyncFMAlbum | SyncFMSong | SyncFMArtist>(ctx: T): T => {
+	const type: "song" | "artist" | "album" = "totalTracks" in ctx
+		? "album"
+		: "albums" in ctx
+			? "artist"
+			: "song";
+	const shortcode = createShortcode(ctx.syncId, type);
+	return {
+		...ctx,
+		shortcode,
+	};
+}
 
 const collapseWhitespace = (s: string) => s.replace(/\s+/g, " ").trim();
 
 const normalizeForSearch = (title: string): string => {
 	let t = String(title ?? "").trim();
+	// Remove feat/ft and everything after
 	t = t.replace(/\b(?:feat(?:uring)?|ft)\b[:.\s-]*.*$/i, "");
+	// Remove common metadata words in parentheses or standalone
 	t = t.replace(/\s*\(?\s*(?:explicit|official(?:\s+(?:video|audio|music\s+video))?|video|audio|lyrics?|hd|4k|visualizer)\s*\)?/gi, " ");
+	// Only remove album FORMAT descriptors (EP, LP, Single) - NOT musical variations like Remastered, Deluxe, Live, etc.
+	// This handles: "Album - EP", "Album - LP", "Album - Single" but keeps "Album - Deluxe", "Album - Remastered"
+	t = t.replace(/\s*[-—–|:]\s*(?:ep|lp|single)(?:\s|$)/gi, " ");
+	// Normalize brackets
 	t = t.replace(/\[/g, "(").replace(/\]/g, ")");
 	t = collapseWhitespace(t);
 	return t;
@@ -17,20 +71,28 @@ const normalizeForSearch = (title: string): string => {
 
 const normalizeTitle = (title: string): string => {
 	let t = String(title ?? "").toLowerCase();
+	// Remove bracketed/parenthetical content
 	t = t.replace(/\s*(?:\(|\[).*?(?:\)|\])/g, " ");
+	// Remove feat/ft and everything after
 	t = t.replace(/\b(?:feat(?:uring)?|ft)\b[:.\s-]*.*$/i, " ");
+	// Remove common metadata words
 	t = t.replace(
 		/\b(?:official(?:\svideo)?|video|audio|lyrics?|remaster(?:ed)?|live|remix|mix|edit|version|instrumental|karaoke|cover)\b/gi,
 		" ",
 	);
+	// Split on dash/pipe/colon and take first part - this handles "Déjà Vu - EP" -> "Déjà Vu"
 	t = t.split(/\s*[-—–|:]\s*/)[0];
-	t = t.replace(/[^0-9a-z\s]/gi, " ");
-	t = collapseWhitespace(removeDiacritics(t)).toLowerCase();
+	// Remove special characters but preserve Unicode letters (including those with diacritics)
+	// This regex keeps: digits (0-9), letters (including accented), and spaces
+	t = t.replace(/[^\p{L}\p{N}\s]/gu, " ");
+	// Collapse multiple spaces
+	t = collapseWhitespace(t);
 
 	if (!t) {
-		t = collapseWhitespace(
-			removeDiacritics(String(title ?? "").toLowerCase()),
-		).replace(/[^0-9a-z\s]/gi, " ");
+		// Fallback: just clean up whitespace and basic special chars
+		t = collapseWhitespace(String(title ?? "").toLowerCase())
+			.replace(/[^\p{L}\p{N}\s]/gu, " ")
+			.trim();
 	}
 
 	return t;
@@ -42,13 +104,17 @@ const normalizeArtists = (artists: string[] = []): string[] => {
 	artists.forEach((artistStr) => {
 		if (!artistStr) return;
 		let s = artistStr.replace(/\s*(?:\(|\[).*?(?:\)|\])/g, " ");
+		// Fixed: removed lowercase 'x' and uppercase 'X' from character class to prevent splitting names like "Lexy"
+		// Only split on actual separators: comma, ampersand, slash, and multiplication symbol (\u00D7)
 		const pieces = s.split(
-			/[,&/\u00D7xX]|(?:\s+and\s+)|(?:\s+with\s+)|(?:\s+&\s+)/i,
+			/[,&/\u00D7]|(?:\s+and\s+)|(?:\s+with\s+)|(?:\s+&\s+)/i,
 		);
 		pieces.forEach((p) => {
 			let a = String(p).toLowerCase();
 			a = a.replace(/\b(?:feat(?:uring)?|ft)\b[:.\s-]*.*$/i, " ");
-			a = collapseWhitespace(removeDiacritics(a).replace(/[^0-9a-z\s]/gi, " "));
+			// Remove special characters but preserve Unicode letters (including diacritics)
+			a = a.replace(/[^\p{L}\p{N}\s]/gu, " ");
+			a = collapseWhitespace(a);
 			if (a) normalizedArtists.push(a);
 		});
 	});
@@ -239,8 +305,15 @@ export const extractAllArtistsFromTitle = (title: string): string[] => {
 	const parts = workingTitle.split(mainSeparatorRegex);
 
 	if (parts.length > 1) {
-		const artistPart = parts[0].trim();
-		allArtists.push(...splitArtists(artistPart));
+		// Check if the part after the separator is metadata (EP, LP, Deluxe, etc.)
+		// If so, don't extract it as an artist name
+		const afterSeparator = parts[1].trim().toLowerCase();
+		const isMetadata = /^(?:ep|lp|single|deluxe|remaster(?:ed)?|live|acoustic|instrumental|anniversary|edition|version|expanded|bonus|explicit)(?:\s|$)/i.test(afterSeparator);
+
+		if (!isMetadata) {
+			const artistPart = parts[0].trim();
+			allArtists.push(...splitArtists(artistPart));
+		}
 	}
 
 	return [...new Set(allArtists)];

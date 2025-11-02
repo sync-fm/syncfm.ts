@@ -143,7 +143,7 @@ export class YouTubeMusicService extends StreamingService {
         return syncFmSong;
     }
 
-    async getSongBySearchQuery(query: string): Promise<SyncFMSong> {
+    async getSongBySearchQuery(query: string, expectedSyncId?: string): Promise<SyncFMSong & { __usedFallback?: boolean }> {
         const ytmusic = await this.getInstance();
         let searchResults;
         try {
@@ -155,29 +155,77 @@ export class YouTubeMusicService extends StreamingService {
         if (searchResults.length === 0) {
             throw new Error("No results found");
         }
+
+        // If we have an expected syncId, try to find the best match from top 3 results
+        if (expectedSyncId && searchResults.length > 1) {
+            const topResults = searchResults.slice(0, Math.min(3, searchResults.length));
+
+            for (const result of topResults) {
+                const candidate = this.internal_YTMSongToSyncFMSong(result as unknown as YouTubeMusicSong);
+                if (candidate.syncId === expectedSyncId) {
+                    return candidate;
+                }
+            }
+
+            const songResult = searchResults[0] as unknown as YouTubeMusicSong;
+            const result = this.internal_YTMSongToSyncFMSong(songResult);
+            return { ...result, __usedFallback: true };
+        }
+
         const songResult = searchResults[0] as unknown as YouTubeMusicSong;
         return this.internal_YTMSongToSyncFMSong(songResult);
-        // Normally the code below would work just fine, but we sometimes get a weird edge-case where the videoId isnt valid for getSong,
-        // So for now we just convert the search result directly
-        // return this.getSongById(songResult.videoId);
     }
 
-    async getArtistBySearchQuery(query: string): Promise<SyncFMArtist> {
+    async getArtistBySearchQuery(query: string, expectedSyncId?: string): Promise<SyncFMArtist & { __usedFallback?: boolean }> {
         const ytmusic = await this.getInstance();
         const searchResults = await ytmusic.searchArtists(query);
         if (searchResults.length === 0) {
             throw new Error("No results found");
         }
+
+        // If we have an expected syncId, try to find the best match from top 3 results
+        if (expectedSyncId && searchResults.length > 1) {
+            const topResults = searchResults.slice(0, Math.min(3, searchResults.length));
+
+            for (const result of topResults) {
+                const candidate = await this.getArtistById(result.artistId);
+                if (candidate.syncId === expectedSyncId) {
+                    return candidate;
+                }
+            }
+
+            const artistResult = searchResults[0];
+            const result = await this.getArtistById(artistResult.artistId);
+            return { ...result, __usedFallback: true };
+        }
+
         const artistResult = searchResults[0];
         return this.getArtistById(artistResult.artistId);
     }
 
-    async getAlbumBySearchQuery(query: string): Promise<SyncFMAlbum> {
+    async getAlbumBySearchQuery(query: string, expectedSyncId?: string): Promise<SyncFMAlbum & { __usedFallback?: boolean }> {
         const ytmusic = await this.getInstance();
         const searchResults = await ytmusic.searchAlbums(query);
         if (searchResults.length === 0) {
             throw new Error("No album results found on YouTube Music for the given query.");
         }
+
+        // If we have an expected syncId, try to find the best match from top 3 results
+        if (expectedSyncId && searchResults.length > 1) {
+            const topResults = searchResults.slice(0, Math.min(3, searchResults.length));
+
+            for (const result of topResults) {
+                const candidate = await this.getAlbumById(result.albumId);
+                if (candidate.syncId === expectedSyncId) {
+                    return candidate;
+                }
+            }
+
+            const albumResult = searchResults[0];
+            const result = await this.getAlbumById(albumResult.albumId);
+            return { ...result, __usedFallback: true };
+        }
+
         const albumResult = searchResults[0];
         return this.getAlbumById(albumResult.albumId);
     }
@@ -191,10 +239,12 @@ export class YouTubeMusicService extends StreamingService {
 
             const pathname = parsedUrl.pathname;
             if (pathname.startsWith('/browse/')) {
-                return pathname.split('/').pop()!;
+                const parts = pathname.split('/');
+                return parts[parts.length - 1] || null;
             }
             if (pathname.startsWith('/channel/')) {
-                return pathname.split('/').pop()!;
+                const parts = pathname.split('/');
+                return parts[parts.length - 1] || null;
             }
 
             return null;

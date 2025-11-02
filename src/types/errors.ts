@@ -16,6 +16,7 @@ export interface ConversionResult<T> {
     success: boolean;
     data?: T;
     error?: ConversionError;
+    usedFallback?: boolean;
 }
 
 export interface ServiceConversionHistory {
@@ -28,6 +29,15 @@ export interface ServiceConversionHistory {
 
 export interface ConversionErrorMap {
     [service: string]: ServiceConversionHistory;
+}
+
+export interface ServiceConversionWarning {
+    message: string;
+    timestamp: Date;
+}
+
+export interface ConversionWarningMap {
+    [service: string]: ServiceConversionWarning;
 }
 
 /**

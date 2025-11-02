@@ -111,33 +111,102 @@ export class SpotifyService extends StreamingService {
         return syncFmAlbum;
     }
 
-    async getSongBySearchQuery(query: string): Promise<SyncFMSong> {
-        const searchResult = await this.sdk.search(query, ["track"], undefined, 1);
+    async getSongBySearchQuery(query: string, expectedSyncId?: string): Promise<SyncFMSong & { __usedFallback?: boolean }> {
+        const searchResult = await this.sdk.search(query, ["track"], undefined, expectedSyncId ? 3 : 1);
 
         if (searchResult.tracks.items.length > 0) {
+            let usedFallback = false;
+
+            // If we have an expected syncId, try to find the best match
+            if (expectedSyncId && searchResult.tracks.items.length > 1) {
+                for (const track of searchResult.tracks.items) {
+                    const candidate = await this.getSongById(track.id);
+                    if (candidate.syncId === expectedSyncId) {
+                        return candidate;
+                    }
+                }
+
+                usedFallback = true;
+            } else if (expectedSyncId) {
+                usedFallback = true;
+            }
+
             const spotifySong: Track = searchResult.tracks.items[0];
-            return this.getSongById(spotifySong.id);
-        } else {
-            throw new Error("No song found");
+            const result = await this.getSongById(spotifySong.id);
+
+            // Add a marker to track that this used fallback
+            if (usedFallback) {
+                return { ...result, __usedFallback: true };
+            }
+
+            return result;
         }
+        throw new Error("No song found");
     }
 
-    async getArtistBySearchQuery(query: string): Promise<SyncFMArtist> {
-        const searchResult = await this.sdk.search(query, ["artist"], undefined, 1);
+    async getArtistBySearchQuery(query: string, expectedSyncId?: string): Promise<SyncFMArtist & { __usedFallback?: boolean }> {
+        const searchResult = await this.sdk.search(query, ["artist"], undefined, expectedSyncId ? 3 : 1);
+
         if (searchResult.artists.items.length > 0) {
+            let usedFallback = false;
+
+            // If we have an expected syncId, try to find the best match
+            if (expectedSyncId && searchResult.artists.items.length > 1) {
+                for (const artist of searchResult.artists.items) {
+                    const candidate = await this.getArtistById(artist.id);
+                    if (candidate.syncId === expectedSyncId) {
+                        return candidate;
+                    }
+                }
+
+                usedFallback = true;
+            } else if (expectedSyncId) {
+                usedFallback = true;
+            }
+
             const spotifyArtist = searchResult.artists.items[0];
-            return this.getArtistById(spotifyArtist.id);
-        } else {
-            throw new Error("No artist found");
+            const result = await this.getArtistById(spotifyArtist.id);
+
+            if (usedFallback) {
+                return { ...result, __usedFallback: true };
+            }
+
+            return result;
         }
+        throw new Error("No artist found");
     }
 
-    async getAlbumBySearchQuery(query: string): Promise<SyncFMAlbum> {
-        const searchResult = await this.sdk.search(query, ["album"], undefined, 3);
+    async getAlbumBySearchQuery(query: string, expectedSyncId?: string): Promise<SyncFMAlbum & { __usedFallback?: boolean }> {
+        const searchResult = await this.sdk.search(query, ["album"], undefined, expectedSyncId ? 3 : 3);
+
         if (searchResult.albums.items.length > 0) {
+            let usedFallback = false;
+
+            // If we have an expected syncId, try to find the best match
+            if (expectedSyncId && searchResult.albums.items.length > 1) {
+                for (const album of searchResult.albums.items) {
+                    if (album?.id) {
+                        const candidate = await this.getAlbumById(album.id);
+                        if (candidate.syncId === expectedSyncId) {
+                            return candidate;
+                        }
+                    }
+                }
+
+                usedFallback = true;
+            } else if (expectedSyncId) {
+                usedFallback = true;
+            }
+
             const spotifyAlbum = searchResult.albums.items[0];
-            if (spotifyAlbum && spotifyAlbum.id) {
-                return await this.getAlbumById(spotifyAlbum.id);
+            if (spotifyAlbum?.id) {
+                const result = await this.getAlbumById(spotifyAlbum.id);
+
+                if (usedFallback) {
+                    return { ...result, __usedFallback: true };
+                }
+
+                return result;
             }
         }
         throw new Error("No album found for the given query.");

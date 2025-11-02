@@ -326,17 +326,59 @@ export class AppleMusicService extends StreamingService {
 		return syncFmAlbum;
 	}
 
-	async getSongBySearchQuery(query: string): Promise<SyncFMSong> {
+	async getSongBySearchQuery(query: string, expectedSyncId?: string): Promise<SyncFMSong & { __usedFallback?: boolean }> {
+		if (expectedSyncId) {
+			const ids = await this.searchForIds(query, "songs", 3);
+
+			for (const id of ids) {
+				const candidate = await this.getSongById(id);
+				if (candidate.syncId === expectedSyncId) {
+					return candidate;
+				}
+			}
+
+			const result = await this.getSongById(ids[0]);
+			return { ...result, __usedFallback: true };
+		}
+
 		const id = await this.searchForId(query, "songs");
 		return this.getSongById(id);
 	}
 
-	async getArtistBySearchQuery(query: string): Promise<SyncFMArtist> {
+	async getArtistBySearchQuery(query: string, expectedSyncId?: string): Promise<SyncFMArtist & { __usedFallback?: boolean }> {
+		if (expectedSyncId) {
+			const ids = await this.searchForIds(query, "artists", 3);
+
+			for (const id of ids) {
+				const candidate = await this.getArtistById(id);
+				if (candidate.syncId === expectedSyncId) {
+					return candidate;
+				}
+			}
+
+			const result = await this.getArtistById(ids[0]);
+			return { ...result, __usedFallback: true };
+		}
+
 		const id = await this.searchForId(query, "artists");
 		return this.getArtistById(id);
 	}
 
-	async getAlbumBySearchQuery(query: string): Promise<SyncFMAlbum> {
+	async getAlbumBySearchQuery(query: string, expectedSyncId?: string): Promise<SyncFMAlbum & { __usedFallback?: boolean }> {
+		if (expectedSyncId) {
+			const ids = await this.searchForIds(query, "albums", 3);
+
+			for (const id of ids) {
+				const candidate = await this.getAlbumById(id);
+				if (candidate.syncId === expectedSyncId) {
+					return candidate;
+				}
+			}
+
+			const result = await this.getAlbumById(ids[0]);
+			return { ...result, __usedFallback: true };
+		}
+
 		const id = await this.searchForId(query, "albums");
 		return this.getAlbumById(id);
 	}
@@ -345,6 +387,15 @@ export class AppleMusicService extends StreamingService {
 		query: string,
 		type: "songs" | "artists" | "albums",
 	): Promise<string> {
+		const ids = await this.searchForIds(query, type, 1);
+		return ids[0];
+	}
+
+	private async searchForIds(
+		query: string,
+		type: "songs" | "artists" | "albums",
+		limit: number,
+	): Promise<string[]> {
 		try {
 			const client = await this.getInstance();
 			let types: ResourceType;
@@ -364,47 +415,55 @@ export class AppleMusicService extends StreamingService {
 			const searchRes = await client.Search.search({
 				term: query,
 				types: [types],
+				limit,
 			});
 
 			if (searchRes.results[type] && searchRes.results[type].data.length > 0) {
-				const resultId = searchRes.results[type].data[0].id;
+				const results = searchRes.results[type].data.slice(0, limit);
+				const ids: string[] = [];
 
-				// Special handling for songs: check if the result is actually an album single
-				// Apple Music search can return album singles in song search results
-				if (type === "songs") {
-					// Check if this ID is actually an album by trying to fetch it as an album
-					try {
-						const isSingle = await this.isAlbumSingle(resultId);
-						if (isSingle) {
-							// It's a single album, extract the actual song ID
-							let albumData = this.getCachedAlbum(resultId);
-							if (!albumData) {
-								const albumRes = await client.Albums.get({
-									id: resultId,
-									include: [AlbumsEndpointTypes.IncludeOption.Tracks],
-								});
-								if (albumRes.data.length > 0) {
-									albumData = albumRes.data[0];
-									this.setCachedAlbum(resultId, albumData);
+				for (const result of results) {
+					let resultId = result.id;
+
+					// Special handling for songs: check if the result is actually an album single
+					// Apple Music search can return album singles in song search results
+					if (type === "songs") {
+						// Check if this ID is actually an album by trying to fetch it as an album
+						try {
+							const isSingle = await this.isAlbumSingle(resultId);
+							if (isSingle) {
+								// It's a single album, extract the actual song ID
+								let albumData = this.getCachedAlbum(resultId);
+								if (!albumData) {
+									const albumRes = await client.Albums.get({
+										id: resultId,
+										include: [AlbumsEndpointTypes.IncludeOption.Tracks],
+									});
+									if (albumRes.data.length > 0) {
+										albumData = albumRes.data[0];
+										this.setCachedAlbum(resultId, albumData);
+									}
+								}
+
+								if (
+									albumData?.relationships?.tracks?.data &&
+									albumData.relationships.tracks.data.length > 0
+								) {
+									const actualSongId = albumData.relationships.tracks.data[0].id;
+									console.log(`Search returned album single ${resultId}, using actual song ID ${actualSongId}`);
+									resultId = actualSongId;
 								}
 							}
-
-							if (
-								albumData?.relationships?.tracks?.data &&
-								albumData.relationships.tracks.data.length > 0
-							) {
-								const actualSongId = albumData.relationships.tracks.data[0].id;
-								console.log(`Search returned album single ${resultId}, using actual song ID ${actualSongId}`);
-								return actualSongId;
-							}
+						} catch {
+							// If checking for single fails, it's probably a real song ID
+							// Just continue and return the original ID
 						}
-					} catch {
-						// If checking for single fails, it's probably a real song ID
-						// Just continue and return the original ID
 					}
+
+					ids.push(resultId);
 				}
 
-				return resultId;
+				return ids;
 			}
 			throw new Error(`No ${type} found for query: ${query}`);
 		} catch (error) {

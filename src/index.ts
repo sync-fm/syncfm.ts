@@ -5,7 +5,7 @@ import { YouTubeMusicService } from './StreamingServices/YouTubeMusic';
 import type { StreamingService, MusicEntityType } from './StreamingServices/StreamingService';
 import type { SyncFMArtist, SyncFMSong, SyncFMExternalIdMap, SyncFMAlbum, ServiceName, SyncFMConfig } from './types/syncfm';
 import { SyncFMExternalIdMapToDesiredService } from './types/syncfm';
-import { normalizeAlbumData, normalizeSongData } from './utils';
+import { normalizeAlbumData, normalizeSongData, withShortcode } from './utils';
 import { categorizeError, shouldRetryService, shouldRetryImmediately, sleep } from './types/errors';
 import type { ConversionResult, ConversionError } from './types/errors';
 
@@ -105,6 +105,14 @@ export class SyncFM {
         }
     }
 
+    getInputInfoFromShortcode = async <T = SyncFMAlbum | SyncFMArtist | SyncFMSong>(shortcode: string): Promise<T> => {
+        const resolved = await this.Database.resolveShortcode(shortcode);
+        if (!resolved) {
+            throw new Error("Could not resolve shortcode");
+        }
+        return resolved as T;
+    }
+
     convertSong = async (songInfo: SyncFMSong, desiredService: ServiceName): Promise<SyncFMSong> => {
         try {
             return this.unifiedConvert(songInfo, desiredService, 'song');
@@ -141,26 +149,26 @@ export class SyncFM {
         const service = this.getService(serviceName);
 
         try {
-            let convertedData: T;
+            let convertedData: T & { __usedFallback?: boolean };
 
             switch (inputType) {
                 case 'song': {
                     const songData = inputData as unknown as SyncFMSong;
                     const normalizedSongData = normalizeSongData(songData);
-                    const query = `${normalizedSongData.cleanTitle} ${normalizedSongData.allArtists.join(", ")}`;
-                    convertedData = await service.getSongBySearchQuery(query) as unknown as T;
+                    const query = `${normalizedSongData.cleanTitle} ${normalizedSongData.allArtists.join(" ")}`;
+                    convertedData = await service.getSongBySearchQuery(query, songData.syncId) as unknown as T & { __usedFallback?: boolean };
                     break;
                 }
                 case 'album': {
                     const albumData = inputData as unknown as SyncFMAlbum;
                     const normalizedAlbumData = normalizeAlbumData(albumData);
                     const query = `${normalizedAlbumData.cleanTitle} ${normalizedAlbumData.allArtists ? normalizedAlbumData.allArtists.join(" ") : ""}`;
-                    convertedData = await service.getAlbumBySearchQuery(query) as unknown as T;
+                    convertedData = await service.getAlbumBySearchQuery(query, albumData.syncId) as unknown as T & { __usedFallback?: boolean };
                     break;
                 }
                 case 'artist': {
                     const artistData = inputData as unknown as SyncFMArtist;
-                    convertedData = await service.getArtistBySearchQuery(artistData.name) as unknown as T;
+                    convertedData = await service.getArtistBySearchQuery(artistData.name, artistData.syncId) as unknown as T & { __usedFallback?: boolean };
                     break;
                 }
                 default: {
@@ -180,7 +188,19 @@ export class SyncFM {
                 return { service: serviceName, success: false, error };
             }
 
-            return { service: serviceName, success: true, data: convertedData };
+            // Check if this conversion used fallback (syncId mismatch)
+            const usedFallback = convertedData.__usedFallback || false;
+
+            // Remove the internal flag before returning (use destructuring to exclude it)
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-unused-vars
+            const { __usedFallback: _, ...cleanData } = convertedData;
+
+            return {
+                service: serviceName,
+                success: true,
+                data: cleanData as T,
+                usedFallback
+            };
 
         } catch (err) {
             const { errorType, retryable } = categorizeError(err);
@@ -339,18 +359,29 @@ export class SyncFM {
         // Track errors for services that failed
         const conversionErrors: Record<string, { lastAttempt: Date; attempts: number; lastError: string; retryable: boolean }> = {};
 
+        // Track warnings for services that succeeded with fallback (syncId mismatch)
+        const conversionWarnings: Record<string, { message: string; timestamp: Date }> = {};
+
         for (const result of results) {
             if (result.success && result.data) {
-                // Success! Upsert the data
+                // Success! Check if it used fallback
+                if (result.usedFallback) {
+                    conversionWarnings[result.service] = {
+                        message: 'No exact syncId match found, used closest match',
+                        timestamp: new Date(),
+                    };
+                }
+
+                // Upsert the data
                 switch (inputType) {
                     case 'song':
-                        convertedItem = await this.Database.upsertSong(result.data as SyncFMSong) as T;
+                        convertedItem = await this.Database.upsertSong(withShortcode(result.data as SyncFMSong)) as T;
                         break;
                     case 'artist':
-                        convertedItem = await this.Database.upsertArtist(result.data as SyncFMArtist) as T;
+                        convertedItem = await this.Database.upsertArtist(withShortcode(result.data as SyncFMArtist)) as T;
                         break;
                     case 'album':
-                        convertedItem = await this.Database.upsertAlbum(result.data as SyncFMAlbum) as T;
+                        convertedItem = await this.Database.upsertAlbum(withShortcode(result.data as SyncFMAlbum)) as T;
                         break;
                 }
             } else if (result.error) {
@@ -365,12 +396,21 @@ export class SyncFM {
             }
         }
 
-        // Save error information to the database
-        if (Object.keys(conversionErrors).length > 0 && convertedItem) {
-            convertedItem.conversionErrors = {
-                ...convertedItem.conversionErrors,
-                ...conversionErrors,
-            };
+        // Save error and warning information to the database
+        if ((Object.keys(conversionErrors).length > 0 || Object.keys(conversionWarnings).length > 0) && convertedItem) {
+            if (Object.keys(conversionErrors).length > 0) {
+                convertedItem.conversionErrors = {
+                    ...convertedItem.conversionErrors,
+                    ...conversionErrors,
+                };
+            }
+
+            if (Object.keys(conversionWarnings).length > 0) {
+                convertedItem.conversionWarnings = {
+                    ...convertedItem.conversionWarnings,
+                    ...conversionWarnings,
+                };
+            }
 
             switch (inputType) {
                 case 'song':
@@ -426,15 +466,48 @@ export class SyncFM {
         return service.createUrl(id, type);
     }
 
-    createSongURL = (song: SyncFMSong, service: ServiceName): string => {
+    createSongURL = async (song: SyncFMSong, service: ServiceName, syncId?: string): Promise<string> => {
+        // If syncId is provided, fetch the full song from database to ensure we have all externalIds
+        if (syncId) {
+            const fullSong = await this.Database.getSongBySyncId(syncId);
+            if (fullSong) {
+                return this.createURL(fullSong, service, "song");
+            }
+        }
         return this.createURL(song, service, "song");
     }
 
-    createArtistURL = (artist: SyncFMArtist, service: ServiceName): string => {
+    createArtistURL = async (artist: SyncFMArtist, service: ServiceName, syncId?: string): Promise<string> => {
+        // If syncId is provided, fetch the full artist from database to ensure we have all externalIds
+        if (syncId) {
+            const fullArtist = await this.Database.getArtistBySyncId(syncId);
+            if (fullArtist) {
+                return this.createURL(fullArtist, service, "artist");
+            }
+        }
         return this.createURL(artist, service, "artist");
     }
 
-    createAlbumURL = (album: SyncFMAlbum, service: ServiceName): string => {
+    createAlbumURL = async (album: SyncFMAlbum, service: ServiceName, syncId?: string): Promise<string> => {
+        // If syncId is provided, fetch the full album from database to ensure we have all externalIds
+        if (syncId) {
+            const fullAlbum = await this.Database.getAlbumBySyncId(syncId);
+            if (fullAlbum) {
+                return this.createURL(fullAlbum, service, "album");
+            }
+        }
         return this.createURL(album, service, "album");
+    }
+
+    getSongBySyncId = async (syncId: string): Promise<SyncFMSong | null> => {
+        return this.Database.getSongBySyncId(syncId);
+    }
+
+    getArtistBySyncId = async (syncId: string): Promise<SyncFMArtist | null> => {
+        return this.Database.getArtistBySyncId(syncId);
+    }
+
+    getAlbumBySyncId = async (syncId: string): Promise<SyncFMAlbum | null> => {
+        return this.Database.getAlbumBySyncId(syncId);
     }
 }

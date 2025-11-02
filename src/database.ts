@@ -1,6 +1,6 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { SyncFMAlbum, SyncFMArtist, SyncFMSong } from './types/syncfm';
-import { normalizeSongData } from './utils';
+import { normalizeSongData, prefixMapReverse } from './utils';
 import { mergeData, songMergeConfig, artistMergeConfig, albumMergeConfig, MergeConfig } from './squish';
 
 export class Database {
@@ -54,6 +54,43 @@ export class Database {
         }
 
         return data as T;
+    }
+
+    public async resolveShortcode(shortcode: string):
+        Promise<SyncFMAlbum | SyncFMArtist | SyncFMSong | null> {
+        const type = prefixMapReverse[shortcode.slice(0, 2) as keyof typeof prefixMapReverse];
+        if (!type) {
+            throw new Error('Invalid shortcode prefix.');
+        }
+
+        let table: string;
+        switch (type) {
+            case 'song':
+                table = 'songs';
+                break;
+            case 'artist':
+                table = 'artists';
+                break;
+            case 'album':
+                table = 'albums';
+                break;
+            default:
+                throw new Error('Unsupported shortcode type.');
+        }
+
+        const { data, error } = await this.supabase
+            .from(table)
+            .select('*')
+            .eq('shortcode', shortcode)
+            .limit(1)
+            .maybeSingle();
+
+        if (error) {
+            console.error(`Error resolving shortcode: ${error.message}`);
+            return null;
+        }
+
+        return data as SyncFMAlbum | SyncFMArtist | SyncFMSong;
     }
 
     public async getSongBySyncId(syncId: string): Promise<SyncFMSong | null> {

@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars */
-import type { ConversionErrorMap } from './errors';
+import type { ConversionErrorMap, ConversionWarningMap } from './errors';
 
 export interface SyncFMConfig {
     SpotifyClientId?: string;
@@ -38,6 +38,7 @@ export interface SyncFMExternalIdMap {
 
 export interface SyncFMArtist {
     syncId: string; // Hash of generic artist info that is the same across all streaming services
+    shortcode?: string; // Shortcode for easy sharing
     name: string; // Name of the artist
     imageUrl?: string; // URL of the artist's image
     externalIds: SyncFMExternalIdMap;
@@ -45,6 +46,7 @@ export interface SyncFMArtist {
     albums?: SyncFMAlbum[];
     tracks?: SyncFMArtistTrack[];
     conversionErrors?: ConversionErrorMap; // Tracks failed conversion attempts with details
+    conversionWarnings?: ConversionWarningMap; // Tracks successful fallback conversions (syncId mismatch)
     // Later we could add so much here xd
 }
 export interface SyncFMArtistTrack {
@@ -63,6 +65,7 @@ export interface SyncFMPlaylist {
     originalService: SyncFMService; // Original streaming service of the playlist
     externalIds: SyncFMExternalIdMap;
     conversionErrors?: ConversionErrorMap; // Tracks failed conversion attempts with details
+    conversionWarnings?: ConversionWarningMap; // Tracks successful fallback conversions (syncId mismatch)
     songs?: SyncFMSong[]; // Array of songs in the playlist
     totalTracks?: number; // Total number of tracks in the playlist
     duration?: number; // Duration of the playlist in seconds
@@ -73,6 +76,7 @@ export interface SyncFMPlaylist {
 
 export interface SyncFMSong {
     syncId: string; // Hash of generic song info that is the same across all streaming services
+    shortcode?: string; // Shortcode for easy sharing
     title: string; // Title of the song
     description?: string; // Description of the song
     artists: string[]; // Array of artist names
@@ -84,10 +88,12 @@ export interface SyncFMSong {
     externalIds: SyncFMExternalIdMap;
     explicit?: boolean; // Whether the song is explicit or not
     conversionErrors?: ConversionErrorMap; // Tracks failed conversion attempts with details
+    conversionWarnings?: ConversionWarningMap; // Tracks successful fallback conversions (syncId mismatch)
 }
 
 export interface SyncFMAlbum {
     syncId: string; // Hash of generic album info that is the same across all streaming services
+    shortcode?: string; // Shortcode for easy sharing
     title: string; // Title of the album
     description?: string; // Description of the album
     artists: string[]; // Array of artist names
@@ -95,6 +101,7 @@ export interface SyncFMAlbum {
     imageUrl?: string; // URL of the album cover image
     externalIds: SyncFMExternalIdMap;
     conversionErrors?: ConversionErrorMap; // Tracks failed conversion attempts with details
+    conversionWarnings?: ConversionWarningMap; // Tracks successful fallback conversions (syncId mismatch)
     songs: SyncFMSong[]; // Array of songs in the album
     totalTracks?: number; // Total number of tracks in the album
     duration?: number; // Duration of the album in seconds

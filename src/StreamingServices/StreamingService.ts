@@ -14,9 +14,9 @@ export abstract class StreamingService {
 	abstract getArtistById(id: string): Promise<SyncFMArtist>;
 	abstract getAlbumById(id: string): Promise<SyncFMAlbum>;
 
-	abstract getSongBySearchQuery(query: string): Promise<SyncFMSong>;
-	abstract getArtistBySearchQuery(query: string): Promise<SyncFMArtist>;
-	abstract getAlbumBySearchQuery(query: string): Promise<SyncFMAlbum>;
+	abstract getSongBySearchQuery(query: string, expectedSyncId?: string): Promise<SyncFMSong>;
+	abstract getArtistBySearchQuery(query: string, expectedSyncId?: string): Promise<SyncFMArtist>;
+	abstract getAlbumBySearchQuery(query: string, expectedSyncId?: string): Promise<SyncFMAlbum>;
 
 	// Optional methods
 	getPlaylistById?(id: string): Promise<SyncFMPlaylist>;
