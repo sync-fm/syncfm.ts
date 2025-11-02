@@ -117,7 +117,7 @@ export const songMergeConfig: MergeConfig<SyncFMSong> = {
     releaseDate: { strategy: 'keep_existing' },
     imageUrl: { strategy: 'custom', customMerge: imageUrlMerge },
     externalIds: { strategy: 'merge_objects' },
-    previouslyFailedServices: { strategy: 'combine_unique_primitives' },
+    conversionErrors: { strategy: 'merge_objects' },
     explicit: { strategy: 'prefer_new' }
 };
 
@@ -127,7 +127,7 @@ export const artistMergeConfig: MergeConfig<SyncFMArtist> = {
     externalIds: { strategy: 'merge_objects' },
     tracks: { strategy: 'combine_unique_objects', uniqueKey: 'syncId' },
     albums: { strategy: 'combine_unique_objects', uniqueKey: 'syncId' },
-    previouslyFailedServices: { strategy: 'combine_unique_primitives' },
+    conversionErrors: { strategy: 'merge_objects' },
 };
 
 export const albumMergeConfig: MergeConfig<SyncFMAlbum> = {
@@ -137,5 +137,5 @@ export const albumMergeConfig: MergeConfig<SyncFMAlbum> = {
     imageUrl: { strategy: 'custom', customMerge: imageUrlMerge },
     externalIds: { strategy: 'merge_objects' },
     songs: { strategy: 'combine_unique_objects', uniqueKey: 'syncId' },
-    previouslyFailedServices: { strategy: 'combine_unique_primitives' },
+    conversionErrors: { strategy: 'merge_objects' },
 };

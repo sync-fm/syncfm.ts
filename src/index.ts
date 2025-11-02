@@ -2,12 +2,16 @@ import { Database } from './database';
 import { AppleMusicService } from './StreamingServices/AppleMusic';
 import { SpotifyService } from './StreamingServices/Spotify';
 import { YouTubeMusicService } from './StreamingServices/YouTubeMusic';
-import { StreamingService, MusicEntityType } from './StreamingServices/StreamingService';
-import { SyncFMArtist, SyncFMSong, SyncFMConfig, SyncFMExternalIdMapToDesiredService, SyncFMAlbum, ServiceName } from './types/syncfm';
+import type { StreamingService, MusicEntityType } from './StreamingServices/StreamingService';
+import type { SyncFMArtist, SyncFMSong, SyncFMExternalIdMap, SyncFMAlbum, ServiceName, SyncFMConfig } from './types/syncfm';
+import { SyncFMExternalIdMapToDesiredService } from './types/syncfm';
 import { normalizeAlbumData, normalizeSongData } from './utils';
+import { categorizeError, shouldRetryService, shouldRetryImmediately, sleep } from './types/errors';
+import type { ConversionResult, ConversionError } from './types/errors';
 
 export * from './types/syncfm';
 export * from './types/StreamingService';
+export * from './types/errors';
 
 const SUPPORTED_SERVICES: ServiceName[] = ["applemusic", "spotify", "ytmusic"];
 
@@ -128,46 +132,88 @@ export class SyncFM {
         }
     }
 
-    private async invokeServiceMethod<T extends SyncFMSong | SyncFMArtist | SyncFMAlbum>(serviceName: ServiceName, inputData: T, inputType: MusicEntityType): Promise<{ data: T, serviceName: ServiceName, error: any }> {
+    private async invokeServiceMethod<T extends SyncFMSong | SyncFMArtist | SyncFMAlbum>(
+        serviceName: ServiceName,
+        inputData: T,
+        inputType: MusicEntityType,
+        attemptNumber = 1
+    ): Promise<ConversionResult<T>> {
         const service = this.getService(serviceName);
-        switch (inputType) {
-            case 'song': {
-                const songData = inputData as unknown as SyncFMSong;
-                const normalizedSongData = normalizeSongData(songData);
-                return service.getSongBySearchQuery(`${normalizedSongData.cleanTitle} ${normalizedSongData.allArtists.join(", ")}`).then((convertedSong) => {
-                    if (convertedSong) {
-                        return { data: convertedSong, serviceName, error: null };
-                    }
-                    return { data: null as any, serviceName, error: `No result from ${serviceName}` };
-                });
-            }
-            case 'album': {
-                const albumData = inputData as unknown as SyncFMAlbum;
-                const normalizedAlbumData = normalizeAlbumData(albumData);
-                return service.getAlbumBySearchQuery(`${normalizedAlbumData.cleanTitle} ${normalizedAlbumData.allArtists ? normalizedAlbumData.allArtists.join(" ") : ""}`).then((convertedAlbum) => {
-                    if (convertedAlbum) {
-                        return { data: convertedAlbum, serviceName, error: null };
-                    }
-                    return { data: null as any, serviceName, error: `No result from ${serviceName}` };
-                });
-            }
-            case 'artist': {
-                const artistData = inputData as unknown as SyncFMArtist;
-                return service.getArtistBySearchQuery(artistData.name).then((convertedArtist) => {
-                    if (convertedArtist) {
-                        return { data: convertedArtist, serviceName, error: null };
-                    }
-                    return { data: null as any, serviceName, error: `No result from ${serviceName}` };
-                });
-            }
-            default: {
-                throw new Error(`Unsupported input type: ${inputType}`);
-            }
-        }
 
+        try {
+            let convertedData: T;
+
+            switch (inputType) {
+                case 'song': {
+                    const songData = inputData as unknown as SyncFMSong;
+                    const normalizedSongData = normalizeSongData(songData);
+                    const query = `${normalizedSongData.cleanTitle} ${normalizedSongData.allArtists.join(", ")}`;
+                    convertedData = await service.getSongBySearchQuery(query) as unknown as T;
+                    break;
+                }
+                case 'album': {
+                    const albumData = inputData as unknown as SyncFMAlbum;
+                    const normalizedAlbumData = normalizeAlbumData(albumData);
+                    const query = `${normalizedAlbumData.cleanTitle} ${normalizedAlbumData.allArtists ? normalizedAlbumData.allArtists.join(" ") : ""}`;
+                    convertedData = await service.getAlbumBySearchQuery(query) as unknown as T;
+                    break;
+                }
+                case 'artist': {
+                    const artistData = inputData as unknown as SyncFMArtist;
+                    convertedData = await service.getArtistBySearchQuery(artistData.name) as unknown as T;
+                    break;
+                }
+                default: {
+                    throw new Error(`Unsupported input type: ${inputType}`);
+                }
+            }
+
+            if (!convertedData) {
+                const { errorType, retryable } = categorizeError(new Error('No result returned'));
+                const error: ConversionError = {
+                    service: serviceName,
+                    timestamp: new Date(),
+                    errorType,
+                    message: `No result from ${serviceName}`,
+                    retryable,
+                };
+                return { service: serviceName, success: false, error };
+            }
+
+            return { service: serviceName, success: true, data: convertedData };
+
+        } catch (err) {
+            const { errorType, retryable } = categorizeError(err);
+
+            // Check if we should retry immediately
+            if (shouldRetryImmediately(errorType, attemptNumber)) {
+                console.log(`Retrying ${serviceName} (attempt ${attemptNumber + 1}) due to ${errorType} error`);
+
+                // Small delay before retry (exponential backoff: 500ms, 1000ms)
+                const delayMs = 500 * attemptNumber;
+                await sleep(delayMs);
+
+                // Recursive retry
+                return this.invokeServiceMethod(serviceName, inputData, inputType, attemptNumber + 1);
+            }
+
+            const error: ConversionError = {
+                service: serviceName,
+                timestamp: new Date(),
+                errorType,
+                message: String((err as Error)?.message || err || 'Unknown error'),
+                retryable,
+                originalError: err,
+            };
+            return { service: serviceName, success: false, error };
+        }
     }
 
-    private async checkDatabaseForExistingConversion<T extends SyncFMSong | SyncFMArtist | SyncFMAlbum>(input: T, desiredService: ServiceName, inputType: MusicEntityType): Promise<{ data: T | null, foundInDb: boolean }> {
+    private async checkDatabaseForExistingConversion<T extends SyncFMSong | SyncFMArtist | SyncFMAlbum>(
+        input: T,
+        desiredService: ServiceName,
+        inputType: MusicEntityType
+    ): Promise<{ data: T | null, foundInDb: boolean }> {
         let dbItem: T | null = null;
 
         switch (inputType) {
@@ -188,67 +234,93 @@ export class SyncFM {
             return { data: null, foundInDb: false };
         }
 
-        // Retry any previously failed services
-        if (dbItem.previouslyFailedServices && Array.isArray(dbItem.previouslyFailedServices)) {
-            let failedAgain: ServiceName[] = [];
+        // Retry any previously failed services that are retryable
+        if (dbItem.conversionErrors && Object.keys(dbItem.conversionErrors).length > 0) {
+            const servicesToRetry: ServiceName[] = [];
 
-            const conversionPromises = dbItem.previouslyFailedServices.map(
-                serviceName => this.invokeServiceMethod(serviceName, dbItem, inputType)
-            );
-            const results = await Promise.all(conversionPromises);
-            for (const result of results) {
-                if (result.error) {
-                    console.warn(result.error);
-                    failedAgain.push(result.serviceName);
-                }
-                if (result.data) {
-                    switch (inputType) {
-                        case 'song':
-                            dbItem = await this.Database.upsertSong(result.data as SyncFMSong) as T;
-                            break;
-                        case 'artist':
-                            dbItem = await this.Database.upsertArtist(result.data as SyncFMArtist) as T;
-                            break;
-                        case 'album':
-                            dbItem = await this.Database.upsertAlbum(result.data as SyncFMAlbum) as T;
-                            break;
-                        default:
-                            throw new Error(`Unsupported input type: ${inputType}`);
-                    }
+            // Check which services should be retried
+            for (const [serviceName, history] of Object.entries(dbItem.conversionErrors)) {
+                if (shouldRetryService(history)) {
+                    servicesToRetry.push(serviceName as ServiceName);
                 }
             }
 
-            // Update the previouslyFailedServices field
-            const arr1Set = new Set(dbItem.previouslyFailedServices);
-            dbItem.previouslyFailedServices = failedAgain.filter(item => !arr1Set.has(item));
-            switch (inputType) {
-                case 'song':
-                    dbItem = await this.Database.upsertSong(dbItem as SyncFMSong) as T;
-                    break;
-                case 'artist':
-                    dbItem = await this.Database.upsertArtist(dbItem as SyncFMArtist) as T;
-                    break;
-                case 'album':
-                    dbItem = await this.Database.upsertAlbum(dbItem as SyncFMAlbum) as T;
-                    break;
-                default:
-                    throw new Error(`Unsupported input type: ${inputType}`);
+            // Retry failed services
+            if (servicesToRetry.length > 0) {
+                const conversionPromises = servicesToRetry.map(
+                    serviceName => this.invokeServiceMethod(serviceName, dbItem as T, inputType)
+                );
+                const results = await Promise.all(conversionPromises);
+
+                for (const result of results) {
+                    if (result.success && result.data) {
+                        // Success! Upsert the converted data
+                        switch (inputType) {
+                            case 'song':
+                                dbItem = await this.Database.upsertSong(result.data as SyncFMSong) as T;
+                                break;
+                            case 'artist':
+                                dbItem = await this.Database.upsertArtist(result.data as SyncFMArtist) as T;
+                                break;
+                            case 'album':
+                                dbItem = await this.Database.upsertAlbum(result.data as SyncFMAlbum) as T;
+                                break;
+                        }
+
+                        // Remove from error tracking since it succeeded
+                        if (dbItem.conversionErrors) {
+                            delete dbItem.conversionErrors[result.service];
+                        }
+                    } else if (result.error) {
+                        // Still failing - update error history
+                        console.warn(`Retry failed for ${result.service}:`, result.error.message);
+
+                        if (!dbItem.conversionErrors) {
+                            dbItem.conversionErrors = {};
+                        }
+
+                        const existing = dbItem.conversionErrors[result.service];
+                        dbItem.conversionErrors[result.service] = {
+                            lastAttempt: result.error.timestamp,
+                            attempts: (existing?.attempts || 0) + 1,
+                            lastError: result.error.message,
+                            retryable: result.error.retryable,
+                        };
+                    }
+                }
+
+                // Update the database with new error state
+                switch (inputType) {
+                    case 'song':
+                        dbItem = await this.Database.upsertSong(dbItem as SyncFMSong) as T;
+                        break;
+                    case 'artist':
+                        dbItem = await this.Database.upsertArtist(dbItem as SyncFMArtist) as T;
+                        break;
+                    case 'album':
+                        dbItem = await this.Database.upsertAlbum(dbItem as SyncFMAlbum) as T;
+                        break;
+                }
             }
         }
 
         // Check if the desired service ID already exists
-        if (dbItem.externalIds && dbItem.externalIds[SyncFMExternalIdMapToDesiredService[desiredService]]) {
+        if (dbItem.externalIds?.[SyncFMExternalIdMapToDesiredService[desiredService]]) {
             return { data: dbItem, foundInDb: true };
         }
 
         return { data: null, foundInDb: false };
     }
 
-    async unifiedConvert<T extends SyncFMSong | SyncFMArtist | SyncFMAlbum>(inputInfo: T, desiredService: ServiceName, inputType: MusicEntityType): Promise<T> {
+    async unifiedConvert<T extends SyncFMSong | SyncFMArtist | SyncFMAlbum>(
+        inputInfo: T,
+        desiredService: ServiceName,
+        inputType: MusicEntityType
+    ): Promise<T> {
         const dbLookupRes = await this.checkDatabaseForExistingConversion(inputInfo, desiredService, inputType);
 
         if (dbLookupRes.foundInDb && dbLookupRes.data) {
-            if (dbLookupRes.data.externalIds && dbLookupRes.data.externalIds[SyncFMExternalIdMapToDesiredService[desiredService]]) {
+            if (dbLookupRes.data.externalIds?.[SyncFMExternalIdMapToDesiredService[desiredService]]) {
                 return dbLookupRes.data;
             }
         }
@@ -258,15 +330,18 @@ export class SyncFM {
             throw new Error(`Unsupported desired service: ${desiredService}`);
         }
 
-        const conversionPromises = SUPPORTED_SERVICES.map(serviceName => this.invokeServiceMethod(serviceName, inputInfo, inputType));
+        const conversionPromises = SUPPORTED_SERVICES.map(serviceName =>
+            this.invokeServiceMethod(serviceName, inputInfo, inputType)
+        );
         const results = await Promise.all(conversionPromises);
         let convertedItem: T | null = null;
 
+        // Track errors for services that failed
+        const conversionErrors: Record<string, { lastAttempt: Date; attempts: number; lastError: string; retryable: boolean }> = {};
+
         for (const result of results) {
-            if (result.error) {
-                console.warn(result.error);
-            }
-            if (result.data) {
+            if (result.success && result.data) {
+                // Success! Upsert the data
                 switch (inputType) {
                     case 'song':
                         convertedItem = await this.Database.upsertSong(result.data as SyncFMSong) as T;
@@ -277,9 +352,36 @@ export class SyncFM {
                     case 'album':
                         convertedItem = await this.Database.upsertAlbum(result.data as SyncFMAlbum) as T;
                         break;
-                    default:
-                        throw new Error(`Unsupported input type: ${inputType}`);
                 }
+            } else if (result.error) {
+                // Track the error
+                console.warn(`Conversion failed for ${result.service}:`, result.error.message);
+                conversionErrors[result.service] = {
+                    lastAttempt: result.error.timestamp,
+                    attempts: 1,
+                    lastError: result.error.message,
+                    retryable: result.error.retryable,
+                };
+            }
+        }
+
+        // Save error information to the database
+        if (Object.keys(conversionErrors).length > 0 && convertedItem) {
+            convertedItem.conversionErrors = {
+                ...convertedItem.conversionErrors,
+                ...conversionErrors,
+            };
+
+            switch (inputType) {
+                case 'song':
+                    convertedItem = await this.Database.upsertSong(convertedItem as SyncFMSong) as T;
+                    break;
+                case 'artist':
+                    convertedItem = await this.Database.upsertArtist(convertedItem as SyncFMArtist) as T;
+                    break;
+                case 'album':
+                    convertedItem = await this.Database.upsertAlbum(convertedItem as SyncFMAlbum) as T;
+                    break;
             }
         }
 
@@ -298,14 +400,23 @@ export class SyncFM {
                 throw new Error(`Unsupported input type: ${inputType}`);
         }
 
-        if (convertedItem && convertedItem.externalIds && convertedItem.externalIds[SyncFMExternalIdMapToDesiredService[desiredService]]) {
+        if (convertedItem?.externalIds?.[SyncFMExternalIdMapToDesiredService[desiredService]]) {
             return convertedItem;
         }
 
-        throw new Error(`Could not convert ${inputType} to desired service: ${desiredService} \n Final converted item: ${JSON.stringify(convertedItem)}`);
+        // Provide detailed error message about what failed
+        const errorSummary = Object.entries(conversionErrors)
+            .map(([service, error]) => `${service}: ${error.lastError}`)
+            .join('; ');
+
+        throw new Error(
+            `Could not convert ${inputType} to desired service: ${desiredService}\n` +
+            `Conversion failures: ${errorSummary || 'All services failed'}\n` +
+            `Final item: ${JSON.stringify(convertedItem)}`
+        );
     }
 
-    private createURL(item: { externalIds: any }, serviceName: ServiceName, type: MusicEntityType): string {
+    private createURL(item: { externalIds: SyncFMExternalIdMap }, serviceName: ServiceName, type: MusicEntityType): string {
         const service = this.getService(serviceName);
         const serviceKey = SyncFMExternalIdMapToDesiredService[serviceName];
         const id = item.externalIds[serviceKey];
