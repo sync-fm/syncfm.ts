@@ -476,6 +476,13 @@ export class AppleMusicService extends StreamingService {
 		try {
 			const parsedUrl = new URL(url);
 
+			// Check if this is an album URL with a song ID in the query parameter
+			// e.g., /album/123456?i=1700526200 where 1700526200 is the song ID
+			const songIdParam = parsedUrl.searchParams.get("i");
+			if (songIdParam && parsedUrl.pathname.includes("/album/")) {
+				return songIdParam;
+			}
+
 			const pathParts = parsedUrl.pathname.split("/");
 			for (let i = pathParts.length - 1; i >= 0; i--) {
 				const part = pathParts[i];
@@ -493,7 +500,16 @@ export class AppleMusicService extends StreamingService {
 
 	async getTypeFromUrl(url: string): Promise<MusicEntityType | null> {
 		try {
-			const pathParts = new URL(url).pathname.split("/");
+			const parsedUrl = new URL(url);
+
+			// Check if this is an album URL with a song ID in the query parameter
+			// e.g., /album/123456?i=1700526200 - this should be treated as a song
+			const songIdParam = parsedUrl.searchParams.get("i");
+			if (songIdParam && parsedUrl.pathname.includes("/album/")) {
+				return "song";
+			}
+
+			const pathParts = parsedUrl.pathname.split("/");
 			const potentialTypes: MusicEntityType[] = [
 				"song",
 				"album",
