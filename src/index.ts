@@ -440,7 +440,56 @@ export class SyncFM {
                 throw new Error(`Unsupported input type: ${inputType}`);
         }
 
-        if (convertedItem?.externalIds?.[SyncFMExternalIdMapToDesiredService[desiredService]]) {
+        const desiredServiceKey = SyncFMExternalIdMapToDesiredService[desiredService];
+        const hasDesiredServiceId = Boolean(convertedItem?.externalIds?.[desiredServiceKey]);
+
+        if (hasDesiredServiceId) {
+            return convertedItem;
+        }
+
+        const successfulExternalIds = convertedItem
+            ? Object.entries(convertedItem.externalIds ?? {})
+                .filter(([, id]) => Boolean(id))
+                .map(([serviceName]) => serviceName)
+            : [];
+
+        if (convertedItem && successfulExternalIds.length > 0) {
+            console.warn(
+                `Partial conversion success for ${inputType} ${inputInfo.syncId}: missing ${desiredService}, ` +
+                `but succeeded for ${successfulExternalIds.join(', ')}`,
+            );
+
+            const hasLoggedDesiredError = Boolean(convertedItem.conversionErrors?.[desiredService]);
+
+            if (!hasLoggedDesiredError) {
+                const updatedConversionErrors = {
+                    ...convertedItem.conversionErrors,
+                    [desiredService]: {
+                        lastAttempt: new Date(),
+                        attempts: 1,
+                        lastError: `Missing external ID for ${desiredService}`,
+                        retryable: true,
+                    },
+                };
+
+                convertedItem = {
+                    ...convertedItem,
+                    conversionErrors: updatedConversionErrors,
+                } as T;
+
+                switch (inputType) {
+                    case 'song':
+                        convertedItem = await this.Database.upsertSong(convertedItem as SyncFMSong) as T;
+                        break;
+                    case 'artist':
+                        convertedItem = await this.Database.upsertArtist(convertedItem as SyncFMArtist) as T;
+                        break;
+                    case 'album':
+                        convertedItem = await this.Database.upsertAlbum(convertedItem as SyncFMAlbum) as T;
+                        break;
+                }
+            }
+
             return convertedItem;
         }
 
