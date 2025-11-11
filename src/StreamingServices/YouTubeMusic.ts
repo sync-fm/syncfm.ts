@@ -121,8 +121,11 @@ export class YouTubeMusicService extends StreamingService {
             };
             return syncFmSong;
         } catch (error) {
-            // Check if the error is related to invalid video ID
-            if (error instanceof Error && error.message.toLowerCase().includes('invalid video id')) {
+            // Check if the error is related to invalid video ID (case insensitive)
+            if (error instanceof Error && (
+                error.message.toLowerCase().includes('invalid video') ||
+                error.message.toLowerCase().includes('invalid videoid')
+            )) {
                 console.log(`Unofficial YTMusic API failed with invalid video ID for ${id}, falling back to YouTube.ts API`);
 
                 try {
