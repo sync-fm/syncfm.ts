@@ -1,5 +1,5 @@
 import { createHash } from "crypto";
-import { SyncFMAlbum, SyncFMSong, SyncFMArtist } from "./types/syncfm";
+import type { SyncFMAlbum, SyncFMSong, SyncFMArtist } from "./types/syncfm";
 
 function fnv1a(str: string): number {
 	let hash = 0x811c9dc5;

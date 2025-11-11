@@ -6,6 +6,7 @@ export interface SyncFMConfig {
     SpotifyClientSecret?: string;
     SupabaseUrl?: string;
     SupabaseKey?: string;
+    YouTubeApiKey?: string;
 }
 
 export type ServiceName = "applemusic" | "spotify" | "ytmusic";

@@ -1,6 +1,6 @@
 {
   "name": "syncfm.ts",
-  "version": "1.4.7",
+  "version": "1.4.8",
   "description": "TypeScript API for sync.fm",
   "main": "dist/index.js",
   "type": "module",
@@ -59,7 +59,8 @@
     "syncfm.ts": "^1.1.0",
     "tsc-alias": "^1.8.16",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.46.2"
+    "typescript-eslint": "^8.46.2",
+    "youtube.ts": "^0.3.5"
   },
   "devDependencies": {
     "@types/supertest": "^6.0.3",

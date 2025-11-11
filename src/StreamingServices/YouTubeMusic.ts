@@ -1,11 +1,19 @@
-import YTMusic from "@syncfm/ytmusic-api";
-import { SyncFMSong, SyncFMExternalIdMap, SyncFMArtist, SyncFMAlbum } from '../types/syncfm';
+import YTMusic, { type AlbumFull } from "@syncfm/ytmusic-api";
+import Youtube, { type YoutubeVideo } from "youtube.ts";
+import type { SyncFMSong, SyncFMExternalIdMap, SyncFMArtist, SyncFMAlbum } from '../types/syncfm';
 import { generateSyncArtistId, generateSyncId, parseDurationWithFudge } from '../utils';
 import axios from "axios";
-import { StreamingService, MusicEntityType } from './StreamingService';
+import { StreamingService, type MusicEntityType } from './StreamingService';
 
 export class YouTubeMusicService extends StreamingService {
     private ytmusic!: YTMusic;
+    private youtube?: Youtube;
+    private ytmusicApiKey: string | undefined;
+
+    constructor(YoutubeAPIKey?: string) {
+        super();
+        this.ytmusicApiKey = YoutubeAPIKey;
+    }
 
     async getInstance(): Promise<YTMusic> {
         if (!this.ytmusic) {
@@ -15,32 +23,126 @@ export class YouTubeMusicService extends StreamingService {
         return this.ytmusic;
     }
 
-    async getSongById(id: string): Promise<SyncFMSong> {
-        const ytmusic = await this.getInstance();
-        const ytMusicSong = await ytmusic.getSong(id);
+    private getYouTubeInstance(): Youtube {
+        if (!this.youtube) {
+            // Get YouTube API key from environment variable
+            if (!this.ytmusicApiKey) {
+                throw new Error('YOUTUBE_API_KEY variable is required for YouTube.ts fallback');
+            }
+            this.youtube = new Youtube(this.ytmusicApiKey);
+        }
+        return this.youtube;
+    }
 
-        const externalIds: SyncFMExternalIdMap = { YouTube: id };
-        const normalizedDuration = ytMusicSong.duration
-            ? parseDurationWithFudge(ytMusicSong.duration * 1000)
-            : 0;
+    private parseISO8601Duration(duration: string): number {
+        // Parse ISO 8601 duration format like "PT2M52S"
+        const match = duration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+        if (!match) return 0;
+
+        const hours = Number.parseInt(match[1] || '0', 10);
+        const minutes = Number.parseInt(match[2] || '0', 10);
+        const seconds = Number.parseInt(match[3] || '0', 10);
+
+        return hours * 3600 + minutes * 60 + seconds;
+    }
+
+    private extractArtistFromChannelTitle(channelTitle: string): string {
+        // Remove common suffixes like "- Topic", "VEVO", etc.
+        return channelTitle
+            .replace(/\s*-\s*Topic$/i, '')
+            .replace(/\s*VEVO$/i, '')
+            .replace(/\s*Official$/i, '')
+            .trim();
+    }
+
+    private convertYouTubeVideoToSyncFMSong(video: YoutubeVideo): SyncFMSong {
+        const externalIds: SyncFMExternalIdMap = { YouTube: video.id };
+
+        // Parse duration from ISO 8601 format
+        const durationSeconds = this.parseISO8601Duration(video.contentDetails.duration);
+        const normalizedDuration = durationSeconds ? parseDurationWithFudge(durationSeconds * 1000) : 0;
+
+        // Extract artist name from channel title
+        const artistName = this.extractArtistFromChannelTitle(video.snippet.channelTitle);
+        const artists = [artistName];
+
+        // Get thumbnail URL (prefer maxres, fall back to high, then medium)
+        let imageUrl: string | undefined;
+        if (video.snippet.thumbnails.maxres) {
+            imageUrl = video.snippet.thumbnails.maxres.url;
+        } else if (video.snippet.thumbnails.high) {
+            imageUrl = video.snippet.thumbnails.high.url;
+        } else if (video.snippet.thumbnails.medium) {
+            imageUrl = video.snippet.thumbnails.medium.url;
+        }
 
         const syncFmSong: SyncFMSong = {
-            syncId: generateSyncId(
-                ytMusicSong.name,
-                ytMusicSong.artist ? [ytMusicSong.artist.name] : [],
-                normalizedDuration,
-            ),
-            title: ytMusicSong.name,
+            syncId: generateSyncId(video.snippet.title, artists, normalizedDuration),
+            title: video.snippet.title,
             description: undefined,
-            artists: ytMusicSong.artist ? [ytMusicSong.artist.name] : [],
+            artists: artists,
             album: undefined,
             releaseDate: undefined,
-            duration: ytMusicSong.duration ? normalizedDuration : undefined,
-            imageUrl: ytMusicSong.thumbnails[0]?.url,
+            duration: normalizedDuration || undefined,
+            imageUrl: imageUrl,
             externalIds: externalIds,
             explicit: undefined,
         };
+
         return syncFmSong;
+    }
+
+    async getSongById(id: string): Promise<SyncFMSong> {
+        const ytmusic = await this.getInstance();
+
+        try {
+            const ytMusicSong = await ytmusic.getSong(id);
+
+            const externalIds: SyncFMExternalIdMap = { YouTube: id };
+            const normalizedDuration = ytMusicSong.duration
+                ? parseDurationWithFudge(ytMusicSong.duration * 1000)
+                : 0;
+
+            const syncFmSong: SyncFMSong = {
+                syncId: generateSyncId(
+                    ytMusicSong.name,
+                    ytMusicSong.artist ? [ytMusicSong.artist.name] : [],
+                    normalizedDuration,
+                ),
+                title: ytMusicSong.name,
+                description: undefined,
+                artists: ytMusicSong.artist ? [ytMusicSong.artist.name] : [],
+                album: undefined,
+                releaseDate: undefined,
+                duration: ytMusicSong.duration ? normalizedDuration : undefined,
+                imageUrl: ytMusicSong.thumbnails[0]?.url,
+                externalIds: externalIds,
+                explicit: undefined,
+            };
+            return syncFmSong;
+        } catch (error) {
+            // Check if the error is related to invalid video ID
+            if (error instanceof Error && error.message.toLowerCase().includes('invalid video id')) {
+                console.log(`Unofficial YTMusic API failed with invalid video ID for ${id}, falling back to YouTube.ts API`);
+
+                try {
+                    const youtube = this.getYouTubeInstance();
+                    const video = await youtube.videos.get(id);
+
+                    if (!video) {
+                        throw new Error(`Video not found with ID: ${id}`);
+                    }
+
+                    return this.convertYouTubeVideoToSyncFMSong(video);
+                } catch (fallbackError) {
+                    console.error(`YouTube.ts API also failed for ${id}:`, fallbackError);
+                    throw new Error(`Both APIs failed to fetch video ${id}: ${error.message} | ${fallbackError instanceof Error ? fallbackError.message : 'Unknown fallback error'}`);
+                }
+            }
+
+            // Re-throw the original error if it's not an invalid video ID error
+            throw error;
+        }
     }
 
     async getArtistById(id: string): Promise<SyncFMArtist> {
@@ -61,7 +163,7 @@ export class YouTubeMusicService extends StreamingService {
 
     async getAlbumById(id: string): Promise<SyncFMAlbum> {
         const ytmusic = await this.getInstance();
-        let ytMusicAlbum;
+        let ytMusicAlbum: AlbumFull;
         if (!id.startsWith("MPREb_")) {
             console.warn("Invalid YouTube Music album ID, attempting to get browseId");
             const browseId = await this.getBrowseIdFromPlaylist(id);
@@ -69,7 +171,7 @@ export class YouTubeMusicService extends StreamingService {
         } else {
             ytMusicAlbum = await ytmusic.getAlbum(id);
         }
-        let normalizedArtists: string[] = [];
+        const normalizedArtists: string[] = [];
         if (ytMusicAlbum.artist) {
             const splitArtists = ytMusicAlbum.artist.name.split(/[,&]\s*|\s* and \s*/i).map(a => a.trim()).filter(a => a.length > 0);
             normalizedArtists.push(...splitArtists);
@@ -77,7 +179,8 @@ export class YouTubeMusicService extends StreamingService {
 
         let totalDuration = 0;
         let totalTracks = 0;
-        let parsedTracks: SyncFMSong[] = [];
+        const parsedTracks: SyncFMSong[] = [];
+        // biome-ignore lint/complexity/noForEach: <shh>
         ytMusicAlbum.songs.forEach(song => {
             totalTracks += 1;
             const normalizedDuration = song.duration
@@ -145,7 +248,7 @@ export class YouTubeMusicService extends StreamingService {
 
     async getSongBySearchQuery(query: string, expectedSyncId?: string): Promise<SyncFMSong & { __usedFallback?: boolean }> {
         const ytmusic = await this.getInstance();
-        let searchResults;
+        let searchResults: YouTubeMusicSong[];
         try {
             searchResults = await ytmusic.searchSongs(query);
         } catch (error) {

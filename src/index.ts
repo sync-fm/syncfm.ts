@@ -35,7 +35,7 @@ export class SyncFM {
         this.services = new Map<ServiceName, StreamingService>();
         this.services.set('spotify', new SpotifyService(this.config.SpotifyClientId, this.config.SpotifyClientSecret));
         this.services.set('applemusic', new AppleMusicService());
-        this.services.set('ytmusic', new YouTubeMusicService());
+        this.services.set('ytmusic', new YouTubeMusicService(this.config.YouTubeApiKey));
     }
 
     private getService(name: ServiceName): StreamingService {
