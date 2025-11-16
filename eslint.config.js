@@ -7,24 +7,24 @@ import { defineConfig } from "eslint/config";
 export default defineConfig([
   // Ignore specific files globally
   {
-    ignores: ["dist/**"], // Added ignores for specific file and dist folder
+    ignores: ["dist/**", "src/types/supabase.ts", "test2.ts"],
   },
-  
+
   // Base JS configuration
-  { 
-    files: ["**/*.{js,mjs,cjs,ts}"], 
-    plugins: { js }, 
-    extends: ["js/recommended"] 
+  {
+    files: ["**/*.{js,mjs,cjs,ts}"],
+    plugins: { js },
+    extends: ["js/recommended"]
   },
 
   // Node.js environment globals
-  { 
-    files: ["**/*.{js,mjs,cjs,ts}"], 
-    languageOptions: { 
+  {
+    files: ["**/*.{js,mjs,cjs,ts}"],
+    languageOptions: {
       globals: {
         ...globals.node
-      } 
-    } 
+      }
+    }
   },
   // TypeScript specific configurations
   {
@@ -35,12 +35,12 @@ export default defineConfig([
     languageOptions: {
       parser: tseslint.parser,
       parserOptions: {
-         project: './tsconfig.eslint.json',
+        project: './tsconfig.eslint.json',
       },
     },
     rules: {
       ...tseslint.configs.recommended.rules,
-       '@typescript-eslint/no-unused-vars': ['warn', { 'argsIgnorePattern': '^_' }]
+      '@typescript-eslint/no-unused-vars': ['warn', { 'argsIgnorePattern': '^_' }]
     },
   },
 ]);

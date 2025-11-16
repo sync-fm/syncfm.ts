@@ -5,6 +5,7 @@
 // source: src/StreamingServices/Spotify/canvas-protos/canvas.proto
 
 /* eslint-disable */
+/* biome-ignore-all lint: generated */
 import { BinaryReader, BinaryWriter } from "@bufbuild/protobuf/wire";
 
 export const protobufPackage = "";
@@ -30,8 +31,8 @@ export interface CanvasResponse_Canvas {
   /** spotify:track:5osCClSjGplWagDsJmyivf */
   trackUri: string;
   artist:
-    | CanvasResponse_Canvas_Artist
-    | undefined;
+  | CanvasResponse_Canvas_Artist
+  | undefined;
   /** 957a9be5e5c1b9ef1ac1c96b7cebf396 */
   otherId: string;
   /** spotify:canvas:1OuybAWK7XOQMG725ZtFwG */

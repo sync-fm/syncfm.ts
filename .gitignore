@@ -7,3 +7,4 @@ coverage/
 .vscode/
 testing.ts
 tests/
+debug-logs

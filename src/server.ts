@@ -1,5 +1,5 @@
-import express, { Express, Request, Response } from "express";
-import { SyncFM, SyncFMSong } from "./";
+import express, { type Express, type Request, type Response } from "express";
+import { SyncFM, type SyncFMSong } from "./";
 
 const app: Express = express();
 const port = process.env.PORT || 3000;

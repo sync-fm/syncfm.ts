@@ -1,6 +1,6 @@
 {
   "name": "syncfm.ts",
-  "version": "1.4.9",
+  "version": "1.5.0",
   "description": "TypeScript API for sync.fm",
   "main": "dist/index.js",
   "type": "module",
@@ -56,13 +56,13 @@
     "axios": "^1.13.0",
     "eslint": "^9.38.0",
     "express": "^5.1.0",
-    "syncfm.ts": "^1.1.0",
     "tsc-alias": "^1.8.16",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.46.2",
     "youtube.ts": "^0.3.5"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.3.5",
     "@types/supertest": "^6.0.3",
     "@vitest/coverage-v8": "^3.2.4",
     "globals": "^16.4.0",

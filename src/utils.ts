@@ -1,3 +1,4 @@
+// biome-ignore lint/style/useNodejsImportProtocol: shh
 import { createHash } from "crypto";
 import type { SyncFMAlbum, SyncFMSong, SyncFMArtist } from "./types/syncfm";
 
@@ -101,62 +102,68 @@ const normalizeTitle = (title: string): string => {
 const normalizeArtists = (artists: string[] = []): string[] => {
 	const normalizedArtists: string[] = [];
 
-	artists.forEach((artistStr) => {
+	for (const artistStr of artists) {
 		if (!artistStr) return;
-		let s = artistStr.replace(/\s*(?:\(|\[).*?(?:\)|\])/g, " ");
+		const s = artistStr.replace(/\s*(?:\(|\[).*?(?:\)|\])/g, " ");
 		// Fixed: removed lowercase 'x' and uppercase 'X' from character class to prevent splitting names like "Lexy"
 		// Only split on actual separators: comma, ampersand, slash, and multiplication symbol (\u00D7)
 		const pieces = s.split(
 			/[,&/\u00D7]|(?:\s+and\s+)|(?:\s+with\s+)|(?:\s+&\s+)/i,
 		);
-		pieces.forEach((p) => {
+
+		for (const p of pieces) {
 			let a = String(p).toLowerCase();
 			a = a.replace(/\b(?:feat(?:uring)?|ft)\b[:.\s-]*.*$/i, " ");
 			// Remove special characters but preserve Unicode letters (including diacritics)
 			a = a.replace(/[^\p{L}\p{N}\s]/gu, " ");
 			a = collapseWhitespace(a);
 			if (a) normalizedArtists.push(a);
-		});
-	});
+		}
+	}
 
 	const seen = new Set<string>();
 	const deduped: string[] = [];
-	normalizedArtists.forEach((a) => {
-		const t = a.trim();
+
+	for (const artist of normalizedArtists) {
+		const t = artist.trim();
 		if (!t) return;
 		if (!seen.has(t)) {
 			seen.add(t);
 			deduped.push(t);
 		}
-	});
+	}
 
 	return deduped;
 };
 
 export const normalizeSongData = (songInfo: SyncFMSong) => {
-	let cleanTitle = normalizeForSearch(songInfo.title ?? "");
+	const cleanTitle = normalizeForSearch(songInfo.title ?? "");
 
-	let normalizedArtists: string[] = [];
-	songInfo.artists.forEach((artistStr) => {
+	const normalizedArtists: string[] = [];
+
+	for (const artistStr of songInfo.artists) {
 		const splitArtists = artistStr
 			.split(/[,&]\s*|\s* and \s*/i)
 			.map((a) => a.trim())
 			.filter((a) => a.length > 0);
 		normalizedArtists.push(...splitArtists);
-	});
+	}
+
 	let allArtists = normalizedArtists;
-	if (songInfo.title && songInfo.title.toLowerCase().includes("feat")) {
+	if (songInfo.title?.toLowerCase().includes("feat")) {
 		const featuredArtistsRegex = /\(feat\.? (.*?)\)/i;
 		const match = songInfo.title.match(featuredArtistsRegex);
-		if (match && match[1]) {
+		if (match?.[1]) {
 			const featuredArtists = match[1]
 				.split(/[,&]\s*|\s* and \s*/i)
 				.map((artist) => artist.trim());
-			featuredArtists.forEach((artist) => {
+
+			for (const artist of featuredArtists) {
 				if (!allArtists.includes(artist)) {
 					allArtists.push(artist);
 				}
-			});
+			}
+
 		}
 	}
 	allArtists = Array.from(new Set(allArtists));
@@ -173,29 +180,32 @@ export const normalizeSongData = (songInfo: SyncFMSong) => {
 };
 
 export const normalizeAlbumData = (albumInfo: SyncFMAlbum) => {
-	let cleanTitle = normalizeForSearch(albumInfo.title ?? "");
+	const cleanTitle = normalizeForSearch(albumInfo.title ?? "");
 
-	let normalizedArtists: string[] = [];
-	albumInfo.artists.forEach((artistStr) => {
+	const normalizedArtists: string[] = [];
+
+	for (const artistStr of albumInfo.artists) {
 		const splitArtists = artistStr
 			.split(/[,&]\s*|\s* and \s*/i)
 			.map((a) => a.trim())
 			.filter((a) => a.length > 0);
 		normalizedArtists.push(...splitArtists);
-	});
+	}
+
 	let allArtists = normalizedArtists;
-	if (albumInfo.title && albumInfo.title.toLowerCase().includes("feat")) {
+	if (albumInfo.title?.toLowerCase().includes("feat")) {
 		const featuredArtistsRegex = /\(feat\.? (.*?)\)/i;
 		const match = albumInfo.title.match(featuredArtistsRegex);
-		if (match && match[1]) {
+		if (match?.[1]) {
 			const featuredArtists = match[1]
 				.split(/[,&]\s*|\s* and \s*/i)
 				.map((artist) => artist.trim());
-			featuredArtists.forEach((artist) => {
+
+			for (const artist of featuredArtists) {
 				if (!allArtists.includes(artist)) {
 					allArtists.push(artist);
 				}
-			});
+			}
 		}
 	}
 	allArtists = Array.from(new Set(allArtists));
@@ -228,11 +238,12 @@ export const generateSyncId = (
 	const canonicalArtists = normalizeArtists(artists);
 
 	const titleArtists = extractAllArtistsFromTitle(title);
-	titleArtists.forEach((ta) => {
-		if (!canonicalArtists.includes(ta)) {
-			canonicalArtists.push(ta);
+
+	for (const artist of titleArtists) {
+		if (!canonicalArtists.includes(artist)) {
+			canonicalArtists.push(artist);
 		}
-	});
+	}
 
 	const sorted = canonicalArtists.sort(sortAlphaNum);
 	const firstArtist = sorted.length > 0 ? sorted[0] : "";

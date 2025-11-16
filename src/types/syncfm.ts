@@ -7,6 +7,7 @@ export interface SyncFMConfig {
     SupabaseUrl?: string;
     SupabaseKey?: string;
     YouTubeApiKey?: string;
+    enableStreamingDebug?: boolean;
 }
 
 export type ServiceName = "applemusic" | "spotify" | "ytmusic";

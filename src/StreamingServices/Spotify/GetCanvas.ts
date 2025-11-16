@@ -1,13 +1,15 @@
 import axios from 'axios';
-import { CanvasRequest, CanvasResponse, CanvasRequest_Track } from './canvas-protos/canvas';
+import { CanvasRequest, CanvasResponse, type CanvasRequest_Track } from './canvas-protos/canvas';
 import { BinaryWriter, BinaryReader } from "@bufbuild/protobuf/wire";
+import { StreamingDebug } from '../debug';
 
 export async function getCanvasFromId(id: string, accessToken: string) {
+  const scope = StreamingDebug.scope('SpotifyCanvas', 'getCanvasFromId', { id });
   try {
 
     const trackUri = `spotify:track:${id}`;
     if (!accessToken) {
-      console.error("No access token provided for Spotify Canvas request");
+      scope.error(new Error('Missing access token'), { reason: 'no-access-token' });
       return null;
     }
 
@@ -42,7 +44,7 @@ export async function getCanvasFromId(id: string, accessToken: string) {
     );
 
     if (response.status !== 200) {
-      console.error(`Canvas fetch failed: ${response.status} ${response.statusText}`);
+      scope.event('error', { stage: 'fetch', status: response.status, statusText: response.statusText });
       return null;
     }
 
@@ -50,10 +52,11 @@ export async function getCanvasFromId(id: string, accessToken: string) {
     const responseBytes = new Uint8Array(response.data);
     const reader = new BinaryReader(responseBytes);
     const parsed = CanvasResponse.decode(reader);
-    
+
+    scope.success({ responseBytes: responseBytes.length });
     return parsed;
   } catch (error) {
-    console.error(`Canvas request error:`, error);
+    scope.error(error, { id });
     return null;
   }
 }

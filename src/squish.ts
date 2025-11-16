@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars */
-import { SyncFMAlbum, SyncFMArtist, SyncFMSong } from './types/syncfm';
+import type { SyncFMAlbum, SyncFMArtist, SyncFMSong } from './types/syncfm';
 
 // Define the strategies for merging a field
 export type MergeStrategy =
@@ -15,7 +15,7 @@ export type MergeStrategy =
 export interface FieldMergeConfig {
     strategy: MergeStrategy;
     uniqueKey?: string;
-    customMerge?: (existingVal: any, newVal: any) => any;
+    customMerge?: (existingVal: unknown, newVal: unknown) => unknown;
 }
 
 // Define the overall merge configuration for an entity
@@ -38,60 +38,60 @@ export function mergeData<T extends object>(existing: T, newData: Partial<T>, co
 
         switch (fieldConfig.strategy) {
             case 'overwrite':
-                merged[key as keyof T] = newValue as any;
+                merged[key as keyof T] = newValue as T[keyof T];
                 break;
 
             case 'keep_existing':
                 if (existingValue === null || existingValue === undefined) {
-                    merged[key as keyof T] = newValue as any;
+                    merged[key as keyof T] = newValue as T[keyof T];
                 }
                 break;
 
             case 'prefer_new':
                 if (newValue !== null && newValue !== undefined) {
-                    merged[key as keyof T] = newValue as any;
+                    merged[key as keyof T] = newValue as T[keyof T];
                 }
                 break;
 
             case 'merge_objects':
                 if (typeof existingValue === 'object' && typeof newValue === 'object' && existingValue !== null && newValue !== null && !Array.isArray(existingValue) && !Array.isArray(newValue)) {
-                    merged[key as keyof T] = { ...existingValue, ...newValue } as any;
+                    merged[key as keyof T] = { ...existingValue, ...newValue } as T[keyof T];
                 } else {
-                    merged[key as keyof T] = newValue as any; // Overwrite if not objects
+                    merged[key as keyof T] = newValue as T[keyof T]; // Overwrite if not objects
                 }
                 break;
 
             case 'combine_unique_primitives':
                 if (Array.isArray(existingValue) && Array.isArray(newValue)) {
-                    merged[key as keyof T] = Array.from(new Set([...existingValue, ...newValue])) as any;
+                    merged[key as keyof T] = Array.from(new Set([...existingValue, ...newValue])) as T[keyof T];
                 } else {
-                    merged[key as keyof T] = newValue as any;
+                    merged[key as keyof T] = newValue as T[keyof T];
                 }
                 break;
 
             case 'combine_unique_objects':
                 if (Array.isArray(existingValue) && Array.isArray(newValue) && fieldConfig.uniqueKey) {
-                    const uniqueKey = fieldConfig.uniqueKey as keyof any;
+                    const uniqueKey = fieldConfig.uniqueKey as keyof unknown;
                     const combinedMap = new Map();
                     [...existingValue, ...newValue].forEach(item => {
                         if (item && typeof item === 'object' && item[uniqueKey]) {
                             combinedMap.set(item[uniqueKey], item);
                         }
                     });
-                    merged[key as keyof T] = Array.from(combinedMap.values()) as any;
+                    merged[key as keyof T] = Array.from(combinedMap.values()) as T[keyof T];
                 } else {
-                    merged[key as keyof T] = newValue as any;
+                    merged[key as keyof T] = newValue as T[keyof T];
                 }
                 break;
 
             case 'custom':
                 if (fieldConfig.customMerge) {
-                    merged[key as keyof T] = fieldConfig.customMerge(existingValue, newValue);
+                    merged[key as keyof T] = fieldConfig.customMerge(existingValue, newValue) as unknown as T[keyof T];
                 }
                 break;
 
             default:
-                merged[key as keyof T] = newValue as any;
+                merged[key as keyof T] = newValue as T[keyof T];
                 break;
         }
     }
@@ -118,6 +118,7 @@ export const songMergeConfig: MergeConfig<SyncFMSong> = {
     imageUrl: { strategy: 'custom', customMerge: imageUrlMerge },
     externalIds: { strategy: 'merge_objects' },
     conversionErrors: { strategy: 'merge_objects' },
+    conversionWarnings: { strategy: 'merge_objects' },
     explicit: { strategy: 'prefer_new' }
 };
 
@@ -128,6 +129,7 @@ export const artistMergeConfig: MergeConfig<SyncFMArtist> = {
     tracks: { strategy: 'combine_unique_objects', uniqueKey: 'syncId' },
     albums: { strategy: 'combine_unique_objects', uniqueKey: 'syncId' },
     conversionErrors: { strategy: 'merge_objects' },
+    conversionWarnings: { strategy: 'merge_objects' },
 };
 
 export const albumMergeConfig: MergeConfig<SyncFMAlbum> = {
@@ -138,4 +140,5 @@ export const albumMergeConfig: MergeConfig<SyncFMAlbum> = {
     externalIds: { strategy: 'merge_objects' },
     songs: { strategy: 'combine_unique_objects', uniqueKey: 'syncId' },
     conversionErrors: { strategy: 'merge_objects' },
+    conversionWarnings: { strategy: 'merge_objects' },
 };

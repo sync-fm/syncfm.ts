@@ -1,36 +1,61 @@
 import YTMusic, { type AlbumFull } from "@syncfm/ytmusic-api";
 import Youtube, { type YoutubeVideo } from "youtube.ts";
-import type { SyncFMSong, SyncFMExternalIdMap, SyncFMArtist, SyncFMAlbum } from '../types/syncfm';
-import { generateSyncArtistId, generateSyncId, parseDurationWithFudge } from '../utils';
+import type { SyncFMSong, SyncFMExternalIdMap, SyncFMArtist, SyncFMAlbum } from '../../types/syncfm';
+import { generateSyncArtistId, generateSyncId, parseDurationWithFudge } from '../../utils';
 import axios from "axios";
-import { StreamingService, type MusicEntityType } from './StreamingService';
+import { StreamingService } from '../StreamingService';
+import { YouTubeMusicURL } from './url';
+import { StreamingDebug } from '../debug';
 
-export class YouTubeMusicService extends StreamingService {
+export class YouTubeMusicService extends StreamingService<YouTubeMusicURL, string> {
+    public readonly Url = YouTubeMusicURL;
+
     private ytmusic!: YTMusic;
     private youtube?: Youtube;
     private ytmusicApiKey: string | undefined;
+    private ytmusicInitPromise?: Promise<void>;
 
+    async getInstance() {
+        const scope = StreamingDebug.scope("YouTubeMusicService", "getInstance", {
+            hasExistingClient: Boolean(this.ytmusic),
+        });
+        if (!this.ytmusic) {
+            this.ytmusic = new YTMusic();
+            scope.event("info", { stage: "initializing" });
+            this.ytmusicInitPromise = this.ytmusic.initialize().catch(err => {
+                this.ytmusic = undefined;
+                scope.event("error", { stage: "initialization", message: err instanceof Error ? err.message : String(err) });
+                throw err;
+            }).then(() => {
+                this.ytmusicInitPromise = undefined;
+                scope.success({ initialized: true });
+            });
+            await this.ytmusicInitPromise;
+        }
+        if (this.ytmusicInitPromise) {
+            scope.event("info", { stage: "awaiting-initialization" });
+            await this.ytmusicInitPromise;
+        }
+        return this.ytmusic;
+    }
     constructor(YoutubeAPIKey?: string) {
         super();
         this.ytmusicApiKey = YoutubeAPIKey;
     }
 
-    async getInstance(): Promise<YTMusic> {
-        if (!this.ytmusic) {
-            this.ytmusic = new YTMusic();
-            await this.ytmusic.initialize();
-        }
-        return this.ytmusic;
-    }
-
     private getYouTubeInstance(): Youtube {
+        const scope = StreamingDebug.scope("YouTubeMusicService", "getYouTubeInstance", {
+            hasExistingClient: Boolean(this.youtube),
+        });
         if (!this.youtube) {
-            // Get YouTube API key from environment variable
             if (!this.ytmusicApiKey) {
+                scope.error(new Error('Missing API key'), {});
                 throw new Error('YOUTUBE_API_KEY variable is required for YouTube.ts fallback');
             }
             this.youtube = new Youtube(this.ytmusicApiKey);
+            scope.event("info", { stage: "created-client" });
         }
+        scope.success({ initialized: true });
         return this.youtube;
     }
 
@@ -88,11 +113,18 @@ export class YouTubeMusicService extends StreamingService {
             externalIds: externalIds,
             explicit: undefined,
         };
-
+        StreamingDebug.log("YouTubeMusicService", "convertYouTubeVideoToSyncFMSong", "success", {
+            meta: {
+                videoId: video.id,
+                duration: normalizedDuration,
+                artistGuess: artistName,
+            },
+        });
         return syncFmSong;
     }
 
     async getSongById(id: string): Promise<SyncFMSong> {
+        const scope = StreamingDebug.scope("YouTubeMusicService", "getSongById", { id });
         const ytmusic = await this.getInstance();
 
         try {
@@ -119,14 +151,14 @@ export class YouTubeMusicService extends StreamingService {
                 externalIds: externalIds,
                 explicit: undefined,
             };
+            scope.success({ provider: "ytmusic", duration: normalizedDuration });
             return syncFmSong;
         } catch (error) {
-            // Check if the error is related to invalid video ID (case insensitive)
             if (error instanceof Error && (
                 error.message.toLowerCase().includes('invalid video') ||
                 error.message.toLowerCase().includes('invalid videoid')
             )) {
-                console.log(`Unofficial YTMusic API failed with invalid video ID for ${id}, falling back to YouTube.ts API`);
+                scope.event("error", { stage: "ytmusic-primary", reason: error.message });
 
                 try {
                     const youtube = this.getYouTubeInstance();
@@ -136,95 +168,110 @@ export class YouTubeMusicService extends StreamingService {
                         throw new Error(`Video not found with ID: ${id}`);
                     }
 
-                    return this.convertYouTubeVideoToSyncFMSong(video);
+                    const fallbackResult = this.convertYouTubeVideoToSyncFMSong(video);
+                    scope.success({ provider: "youtube-fallback" });
+                    return fallbackResult;
                 } catch (fallbackError) {
-                    console.error(`YouTube.ts API also failed for ${id}:`, fallbackError);
-                    throw new Error(`Both APIs failed to fetch video ${id}: ${error.message} | ${fallbackError instanceof Error ? fallbackError.message : 'Unknown fallback error'}`);
+                    scope.error(fallbackError, { stage: "youtube-fallback" });
+                    throw new Error(`Both APIs failed to fetch video ${id}: ${error instanceof Error ? error.message : 'Unknown primary error'} | ${fallbackError instanceof Error ? fallbackError.message : 'Unknown fallback error'}`);
                 }
             }
 
-            // Re-throw the original error if it's not an invalid video ID error
+            scope.error(error, { stage: "ytmusic-primary" });
             throw error;
         }
     }
 
     async getArtistById(id: string): Promise<SyncFMArtist> {
-        const ytmusic = await this.getInstance();
-        const ytMusicArtist = await ytmusic.getArtist(id);
+        const scope = StreamingDebug.scope("YouTubeMusicService", "getArtistById", { id });
+        try {
+            const ytmusic = await this.getInstance();
+            const ytMusicArtist = await ytmusic.getArtist(id);
 
-        const externalIds: SyncFMExternalIdMap = { YouTube: id };
+            const externalIds: SyncFMExternalIdMap = { YouTube: id };
 
-        const syncFmArtist: SyncFMArtist = {
-            syncId: generateSyncArtistId(ytMusicArtist.name),
-            name: ytMusicArtist.name,
-            imageUrl: ytMusicArtist.thumbnails[0]?.url,
-            externalIds: externalIds,
-            genre: undefined,
-        };
-        return syncFmArtist;
+            const syncFmArtist: SyncFMArtist = {
+                syncId: generateSyncArtistId(ytMusicArtist.name),
+                name: ytMusicArtist.name,
+                imageUrl: ytMusicArtist.thumbnails[0]?.url,
+                externalIds: externalIds,
+                genre: undefined,
+            };
+            scope.success({ hasImage: Boolean(syncFmArtist.imageUrl) });
+            return syncFmArtist;
+        } catch (error) {
+            scope.error(error, { id });
+            throw error;
+        }
     }
 
     async getAlbumById(id: string): Promise<SyncFMAlbum> {
-        const ytmusic = await this.getInstance();
-        let ytMusicAlbum: AlbumFull;
-        if (!id.startsWith("MPREb_")) {
-            console.warn("Invalid YouTube Music album ID, attempting to get browseId");
-            const browseId = await this.getBrowseIdFromPlaylist(id);
-            ytMusicAlbum = await ytmusic.getAlbum(browseId);
-        } else {
-            ytMusicAlbum = await ytmusic.getAlbum(id);
-        }
-        const normalizedArtists: string[] = [];
-        if (ytMusicAlbum.artist) {
-            const splitArtists = ytMusicAlbum.artist.name.split(/[,&]\s*|\s* and \s*/i).map(a => a.trim()).filter(a => a.length > 0);
-            normalizedArtists.push(...splitArtists);
-        }
-
-        let totalDuration = 0;
-        let totalTracks = 0;
-        const parsedTracks: SyncFMSong[] = [];
-        // biome-ignore lint/complexity/noForEach: <shh>
-        ytMusicAlbum.songs.forEach(song => {
-            totalTracks += 1;
-            const normalizedDuration = song.duration
-                ? parseDurationWithFudge(song.duration * 1000)
-                : 0;
-            if (normalizedDuration) {
-                totalDuration += normalizedDuration;
+        const scope = StreamingDebug.scope("YouTubeMusicService", "getAlbumById", { id });
+        try {
+            const ytmusic = await this.getInstance();
+            let ytMusicAlbum: AlbumFull;
+            if (!id.startsWith("MPREb_")) {
+                scope.event("info", { stage: "resolve-browse-id" });
+                const browseId = await this.getBrowseIdFromPlaylist(id);
+                ytMusicAlbum = await ytmusic.getAlbum(browseId);
+            } else {
+                ytMusicAlbum = await ytmusic.getAlbum(id);
             }
-            const externalIds: SyncFMExternalIdMap = { YouTube: song.videoId };
-            const trackArtists = song.artist ? [song.artist.name] : [];
+            const normalizedArtists: string[] = [];
+            if (ytMusicAlbum.artist) {
+                const splitArtists = ytMusicAlbum.artist.name.split(/[,&]\s*|\s* and \s*/i).map(a => a.trim()).filter(a => a.length > 0);
+                normalizedArtists.push(...splitArtists);
+            }
 
-            const syncFmSong: SyncFMSong = {
-                syncId: generateSyncId(song.name, trackArtists, normalizedDuration),
-                title: song.name,
-                description: undefined,
-                artists: trackArtists,
-                album: song.album?.name,
+            let totalDuration = 0;
+            let totalTracks = 0;
+            const parsedTracks: SyncFMSong[] = [];
+            ytMusicAlbum.songs.forEach(song => {
+                totalTracks += 1;
+                const normalizedDuration = song.duration
+                    ? parseDurationWithFudge(song.duration * 1000)
+                    : 0;
+                if (normalizedDuration) {
+                    totalDuration += normalizedDuration;
+                }
+                const externalIds: SyncFMExternalIdMap = { YouTube: song.videoId };
+                const trackArtists = song.artist ? [song.artist.name] : [];
+
+                const syncFmSong: SyncFMSong = {
+                    syncId: generateSyncId(song.name, trackArtists, normalizedDuration),
+                    title: song.name,
+                    description: undefined,
+                    artists: trackArtists,
+                    album: song.album?.name,
+                    releaseDate: undefined,
+                    duration: song.duration ? normalizedDuration : undefined,
+                    imageUrl: song.thumbnails && song.thumbnails.length > 0 ? song.thumbnails[0].url : undefined,
+                    externalIds: externalIds,
+                    explicit: undefined,
+                };
+                parsedTracks.push(syncFmSong);
+            });
+
+            const externalIds: SyncFMExternalIdMap = { YouTube: ytMusicAlbum.albumId };
+
+            const syncFMAlbum: SyncFMAlbum = {
+                syncId: generateSyncId(ytMusicAlbum.name, normalizedArtists, totalDuration),
+                title: ytMusicAlbum.name,
+                artists: normalizedArtists,
                 releaseDate: undefined,
-                duration: song.duration ? normalizedDuration : undefined,
-                imageUrl: song.thumbnails && song.thumbnails.length > 0 ? song.thumbnails[0].url : undefined,
+                imageUrl: ytMusicAlbum.thumbnails && ytMusicAlbum.thumbnails.length > 0 ? ytMusicAlbum.thumbnails[0].url : undefined,
                 externalIds: externalIds,
-                explicit: undefined,
+                duration: totalDuration,
+                songs: parsedTracks,
+                totalTracks: totalTracks,
             };
-            parsedTracks.push(syncFmSong);
-        });
 
-        const externalIds: SyncFMExternalIdMap = { YouTube: ytMusicAlbum.albumId };
-
-        const syncFMAlbum: SyncFMAlbum = {
-            syncId: generateSyncId(ytMusicAlbum.name, normalizedArtists, totalDuration),
-            title: ytMusicAlbum.name,
-            artists: normalizedArtists,
-            releaseDate: undefined,
-            imageUrl: ytMusicAlbum.thumbnails && ytMusicAlbum.thumbnails.length > 0 ? ytMusicAlbum.thumbnails[0].url : undefined,
-            externalIds: externalIds,
-            duration: totalDuration,
-            songs: parsedTracks,
-            totalTracks: totalTracks,
-        };
-
-        return syncFMAlbum;
+            scope.success({ totalTracks, totalDuration });
+            return syncFMAlbum;
+        } catch (error) {
+            scope.error(error, { id });
+            throw error;
+        }
     }
 
     private internal_YTMSongToSyncFMSong(ytMusicSong: YouTubeMusicSong): SyncFMSong {
@@ -246,150 +293,122 @@ export class YouTubeMusicService extends StreamingService {
             externalIds: externalIds,
             explicit: undefined,
         };
+        StreamingDebug.log("YouTubeMusicService", "internal_YTMSongToSyncFMSong", "info", {
+            meta: {
+                videoId: ytMusicSong.videoId,
+                duration: normalizedDuration,
+                artistCount: trackArtists.length,
+            },
+        });
         return syncFmSong;
     }
 
     async getSongBySearchQuery(query: string, expectedSyncId?: string): Promise<SyncFMSong & { __usedFallback?: boolean }> {
+        const scope = StreamingDebug.scope("YouTubeMusicService", "getSongBySearchQuery", {
+            query,
+            expectedSyncId,
+        });
         const ytmusic = await this.getInstance();
         let searchResults: YouTubeMusicSong[];
         try {
             searchResults = await ytmusic.searchSongs(query);
+            scope.event("info", { stage: "search-results", count: searchResults.length });
         } catch (error) {
-            console.error("Error during YouTube Music search:", error);
+            scope.error(error, { stage: "search" });
             throw new Error("YouTube Music search failed");
         }
         if (searchResults.length === 0) {
             throw new Error("No results found");
         }
 
-        // If we have an expected syncId, try to find the best match from top 3 results
         if (expectedSyncId && searchResults.length > 1) {
             const topResults = searchResults.slice(0, Math.min(3, searchResults.length));
 
             for (const result of topResults) {
                 const candidate = this.internal_YTMSongToSyncFMSong(result as unknown as YouTubeMusicSong);
                 if (candidate.syncId === expectedSyncId) {
+                    scope.success({ matchedIndex: topResults.indexOf(result), usedFallback: false });
                     return candidate;
                 }
             }
 
             const songResult = searchResults[0] as unknown as YouTubeMusicSong;
             const result = this.internal_YTMSongToSyncFMSong(songResult);
+            scope.success({ matchedIndex: 0, usedFallback: true });
             return { ...result, __usedFallback: true };
         }
 
         const songResult = searchResults[0] as unknown as YouTubeMusicSong;
+        scope.success({ matchedIndex: 0, usedFallback: false });
         return this.internal_YTMSongToSyncFMSong(songResult);
     }
 
     async getArtistBySearchQuery(query: string, expectedSyncId?: string): Promise<SyncFMArtist & { __usedFallback?: boolean }> {
+        const scope = StreamingDebug.scope("YouTubeMusicService", "getArtistBySearchQuery", {
+            query,
+            expectedSyncId,
+        });
         const ytmusic = await this.getInstance();
         const searchResults = await ytmusic.searchArtists(query);
+        scope.event("info", { stage: "search-results", count: searchResults.length });
         if (searchResults.length === 0) {
             throw new Error("No results found");
         }
 
-        // If we have an expected syncId, try to find the best match from top 3 results
         if (expectedSyncId && searchResults.length > 1) {
             const topResults = searchResults.slice(0, Math.min(3, searchResults.length));
 
             for (const result of topResults) {
                 const candidate = await this.getArtistById(result.artistId);
                 if (candidate.syncId === expectedSyncId) {
+                    scope.success({ matchedId: result.artistId, usedFallback: false });
                     return candidate;
                 }
             }
 
             const artistResult = searchResults[0];
             const result = await this.getArtistById(artistResult.artistId);
+            scope.success({ matchedId: artistResult.artistId, usedFallback: true });
             return { ...result, __usedFallback: true };
         }
 
         const artistResult = searchResults[0];
+        scope.success({ matchedId: artistResult.artistId, usedFallback: false });
         return this.getArtistById(artistResult.artistId);
     }
 
     async getAlbumBySearchQuery(query: string, expectedSyncId?: string): Promise<SyncFMAlbum & { __usedFallback?: boolean }> {
+        const scope = StreamingDebug.scope("YouTubeMusicService", "getAlbumBySearchQuery", {
+            query,
+            expectedSyncId,
+        });
         const ytmusic = await this.getInstance();
         const searchResults = await ytmusic.searchAlbums(query);
+        scope.event("info", { stage: "search-results", count: searchResults.length });
         if (searchResults.length === 0) {
             throw new Error("No album results found on YouTube Music for the given query.");
         }
 
-        // If we have an expected syncId, try to find the best match from top 3 results
         if (expectedSyncId && searchResults.length > 1) {
             const topResults = searchResults.slice(0, Math.min(3, searchResults.length));
 
             for (const result of topResults) {
                 const candidate = await this.getAlbumById(result.albumId);
                 if (candidate.syncId === expectedSyncId) {
+                    scope.success({ matchedId: result.albumId, usedFallback: false });
                     return candidate;
                 }
             }
 
             const albumResult = searchResults[0];
             const result = await this.getAlbumById(albumResult.albumId);
+            scope.success({ matchedId: albumResult.albumId, usedFallback: true });
             return { ...result, __usedFallback: true };
         }
 
         const albumResult = searchResults[0];
+        scope.success({ matchedId: albumResult.albumId, usedFallback: false });
         return this.getAlbumById(albumResult.albumId);
-    }
-
-    getIdFromUrl(url: string): string | null {
-        try {
-            const parsedUrl = new URL(url);
-            const params = parsedUrl.searchParams;
-            if (params.has('v')) return params.get('v');
-            if (params.has('list')) return params.get('list');
-
-            const pathname = parsedUrl.pathname;
-            if (pathname.startsWith('/browse/')) {
-                const parts = pathname.split('/');
-                return parts[parts.length - 1] || null;
-            }
-            if (pathname.startsWith('/channel/')) {
-                const parts = pathname.split('/');
-                return parts[parts.length - 1] || null;
-            }
-
-            return null;
-        } catch (error) {
-            console.error("Invalid URL for YouTube Music", error);
-            return null;
-        }
-    }
-
-    async getTypeFromUrl(url: string): Promise<MusicEntityType | null> {
-        try {
-            const parsedUrl = new URL(url);
-            const pathname = parsedUrl.pathname;
-
-            if (pathname === '/watch') return 'song';
-            if (pathname === '/playlist') return 'album';
-            if (pathname.startsWith('/browse/')) return 'album';
-            if (pathname.startsWith('/channel/')) return 'artist';
-
-            return null;
-        } catch (error) {
-            console.error("Invalid URL for YouTube Music", error);
-            return null;
-        }
-    }
-
-    createUrl(id: string, type: MusicEntityType): string {
-        switch (type) {
-            case 'song':
-                return `https://music.youtube.com/watch?v=${id}`;
-            case 'album':
-                return `https://music.youtube.com/browse/${id}`;
-            case 'artist':
-                return `https://music.youtube.com/channel/${id}`;
-            case 'playlist':
-                return `https://music.youtube.com/playlist?list=${id}`;
-            default:
-                throw new Error("Invalid type for YouTube Music URL");
-        }
     }
 
     private async getBrowseIdFromPlaylist(id: string): Promise<string> {
@@ -404,6 +423,7 @@ export class YouTubeMusicService extends StreamingService {
         };
         const endpoint = "https://music.youtube.com/playlist";
 
+        const scope = StreamingDebug.scope("YouTubeMusicService", "getBrowseIdFromPlaylist", { id });
         try {
             const response = await axios.get(endpoint, {
                 headers: standard_headers,
@@ -418,13 +438,16 @@ export class YouTubeMusicService extends StreamingService {
             }
 
             const albumId = match[0].substr(1);
+            scope.success({ albumId });
             return albumId;
         } catch (error) {
-            console.error("Error fetching playlist:", error);
+            scope.error(error, { id });
             throw error;
         }
     }
 }
+
+export { YouTubeMusicURL };
 
 interface YouTubeMusicSong {
     type: "SONG";
